@@ -319,16 +319,8 @@ public class MapRenderService
                 if (sections == null || sections.Count == 0) continue;
 
                 // 计算当前版本的 Y 轴基础偏移 (1.18+ 为 -64..319, 旧版为 0..256)
-                var yPosTag = level["yPos"] ?? chunkTag["yPos"] ?? level["y_pos"] ?? chunkTag["y_pos"];
-                int? parsedYPos = yPosTag switch
-                {
-                    NbtInt i => i.Value,
-                    NbtByte b => (sbyte)b.Value,
-                    NbtShort s => s.Value,
-                    _ => null
-                };
-
-                int minSectionY = parsedYPos ?? sections.OfType<NbtCompound>()
+                var yPosTag = level.Get<NbtInt>("yPos") ?? chunkTag.Get<NbtInt>("yPos");
+                int minSectionY = yPosTag?.Value ?? sections.OfType<NbtCompound>()
                     .Select(s => GetSectionY(s) ?? 0)
                     .DefaultIfEmpty(0)
                     .Min();
@@ -505,16 +497,8 @@ public class MapRenderService
                 var motionData = (heightmaps?.Get<NbtLongArray>("MOTION_BLOCKING") ?? heightmaps?.Get<NbtLongArray>("motion_blocking"))?.Value;
                 int[]? topHeights = motionData != null ? UnpackHeightmap(motionData) : null;
 
-                var yPosTag = level["yPos"] ?? chunkTag["yPos"] ?? level["y_pos"] ?? chunkTag["y_pos"];
-                int? parsedYPos = yPosTag switch
-                {
-                    NbtInt i => i.Value,
-                    NbtByte b => (sbyte)b.Value,
-                    NbtShort s => s.Value,
-                    _ => null
-                };
-
-                int minSectionY = parsedYPos ?? sections.OfType<NbtCompound>()
+                var yPosTag = level.Get<NbtInt>("yPos") ?? chunkTag.Get<NbtInt>("yPos");
+                int minSectionY = yPosTag?.Value ?? sections.OfType<NbtCompound>()
                     .Select(s => GetSectionY(s) ?? 0)
                     .DefaultIfEmpty(0)
                     .Min();
@@ -590,15 +574,13 @@ public class MapRenderService
         int[] heights = new int[256];
         if (data == null || data.Length == 0) return heights;
 
-        int bitsPerEntry = (int)Math.Ceiling((double)data.Length * 64 / 256);
-        if (bitsPerEntry < 9) bitsPerEntry = 9;
+        const int bitsPerEntry = 9;
+        const long mask = (1L << bitsPerEntry) - 1;
 
-        int entriesPerLong = 64 / bitsPerEntry;
-        bool isAligned = entriesPerLong > 0 && Math.Ceiling(256.0 / entriesPerLong) <= data.Length;
-
-        if (isAligned)
+        if (data.Length >= 37)
         {
-            long mask = (1L << bitsPerEntry) - 1;
+            // 现代 1.16+ 格式：每 64 位 long 存放 7 个 9-bit 整数，边界不跨 long
+            const int entriesPerLong = 7;
             int index = 0;
             foreach (long value in data)
             {
@@ -612,8 +594,7 @@ public class MapRenderService
         }
         else
         {
-            // 连续跨 long 连续位流解包 (1.15 及以前)
-            long mask = (1L << bitsPerEntry) - 1;
+            // 早期 1.15 格式：36 个 long 紧凑连续位流
             for (int index = 0; index < 256; index++)
             {
                 int startBit = index * bitsPerEntry;
@@ -637,14 +618,9 @@ public class MapRenderService
 
     private static int? GetSectionY(NbtCompound sec)
     {
-        var tag = sec["Y"];
-        return tag switch
-        {
-            NbtByte b => (sbyte)b.Value,
-            NbtInt i => i.Value,
-            NbtShort s => s.Value,
-            _ => null
-        };
+        var rawY = sec.Get<NbtByte>("Y")?.Value;
+        if (rawY != null) return (int)(sbyte)rawY.Value;
+        return sec.Get<NbtInt>("Y")?.Value ?? (int?)sec.Get<NbtShort>("Y")?.Value;
     }
 
     private static string ExtractBlockName(NbtTag? tag)
@@ -687,24 +663,10 @@ public class MapRenderService
 
             int paletteSize = palette.Count;
             int bitsPerEntry = Math.Max(4, (int)Math.Ceiling(Math.Log2(paletteSize)));
-
-            // 根据 data.Length 校准 bitsPerEntry，避免调色板变更但数据数组未收缩导致的错位
-            for (int b = 4; b <= 12; b++)
-            {
-                int expectedLongs = (int)Math.Ceiling(4096.0 / (64 / b));
-                if (data.Length == expectedLongs)
-                {
-                    bitsPerEntry = b;
-                    break;
-                }
-            }
-
             int entriesPerLong = 64 / bitsPerEntry;
-            int paletteIndex;
 
-            if (entriesPerLong > 0 && Math.Ceiling(4096.0 / entriesPerLong) <= data.Length)
+            if (entriesPerLong > 0)
             {
-                // 现代 1.16+ 对齐打包 (不跨 64 位 long 边界)
                 int longIndex = blockIndex / entriesPerLong;
                 int startBit = (blockIndex % entriesPerLong) * bitsPerEntry;
 
@@ -712,30 +674,12 @@ public class MapRenderService
 
                 long val = data[longIndex];
                 long mask = (1L << bitsPerEntry) - 1;
-                paletteIndex = (int)((val >> startBit) & mask);
+                int paletteIndex = (int)((val >> startBit) & mask);
+
+                if (paletteIndex >= paletteSize) return "minecraft:air";
+
+                return ExtractBlockName(palette[paletteIndex]);
             }
-            else
-            {
-                // 旧版 1.15 及以前连续跨 long 打包
-                int startBit = blockIndex * bitsPerEntry;
-                int longIndex = startBit / 64;
-                int bitOffset = startBit % 64;
-                if (longIndex >= data.Length) return "minecraft:air";
-
-                ulong low = (ulong)data[longIndex] >> bitOffset;
-                ulong val = low;
-                if (bitOffset + bitsPerEntry > 64 && longIndex + 1 < data.Length)
-                {
-                    ulong high = (ulong)data[longIndex + 1] << (64 - bitOffset);
-                    val = low | high;
-                }
-                long mask = (1L << bitsPerEntry) - 1;
-                paletteIndex = (int)(val & (ulong)mask);
-            }
-
-            if (paletteIndex >= paletteSize) return "minecraft:air";
-
-            return ExtractBlockName(palette[paletteIndex]);
         }
         return "minecraft:air";
     }
