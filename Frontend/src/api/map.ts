@@ -43,13 +43,22 @@ export async function ensureMediaToken(): Promise<string> {
   return '';
 }
 
-export async function getWorldSpawn(serverId: number): Promise<{ x: number; z: number }> {
+export async function getWorldSpawn(serverId: number, dimension = 'overworld'): Promise<{ x: number; z: number }> {
+  const params = dimension && dimension !== 'overworld' ? `?dimension=${encodeURIComponent(dimension)}` : '';
   return await request.get({
-    url: `/api/plugin/mslx-plugin-map-render/map/spawn/${serverId}`,
+    url: `/api/plugin/mslx-plugin-map-render/map/spawn/${serverId}${params}`,
   });
 }
 
-export function getTileUrl(serverId: number, regionX: number, regionZ: number, tokenParam = ''): string {
+export function getTileUrl(serverId: number, regionX: number, regionZ: number, tokenParam = '', dimension = 'overworld'): string {
   const host = getBaseUrl();
-  return `${host}/api/plugin/mslx-plugin-map-render/map/${serverId}/${regionX}/${regionZ}${tokenParam}`;
+  let url = `${host}/api/plugin/mslx-plugin-map-render/map/${serverId}/${regionX}/${regionZ}`;
+  const params: string[] = [];
+  if (tokenParam) {
+    params.push(tokenParam.startsWith('?') ? tokenParam.slice(1) : tokenParam);
+  }
+  if (dimension && dimension !== 'overworld') {
+    params.push(`dimension=${encodeURIComponent(dimension)}`);
+  }
+  return params.length > 0 ? `${url}?${params.join('&')}` : url;
 }

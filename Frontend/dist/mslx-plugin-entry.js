@@ -43,15 +43,15 @@ var re = (e) => {
 }, A = (e, r) => {
   var o = {};
   if (e.attrs)
-    for (var [l, i] of Object.entries(e.attrs))
-      if (typeof i == "string" && i.startsWith("props.")) {
-        var m = i.split(".")[1];
+    for (var [l, a] of Object.entries(e.attrs))
+      if (typeof a == "string" && a.startsWith("props.")) {
+        var m = a.split(".")[1];
         o[re(l)] = r[m];
       } else
-        o[re(l)] = i;
+        o[re(l)] = a;
   e.tag === "svg" && (o.class = r.class, o.style = r.style, o.onClick = r.onClick);
-  var p = e.children ? e.children.map((b) => A(b, r)) : [];
-  return t.h(e.tag, o, p);
+  var u = e.children ? e.children.map((p) => A(p, r)) : [];
+  return t.h(e.tag, o, u);
 }, Se = "t", ze = {
   classPrefix: Se
 };
@@ -100,8 +100,8 @@ function oe(e, r) {
   var o = Object.keys(e);
   if (Object.getOwnPropertySymbols) {
     var l = Object.getOwnPropertySymbols(e);
-    r && (l = l.filter(function(i) {
-      return Object.getOwnPropertyDescriptor(e, i).enumerable;
+    r && (l = l.filter(function(a) {
+      return Object.getOwnPropertyDescriptor(e, a).enumerable;
     })), o.push.apply(o, l);
   }
   return o;
@@ -150,7 +150,7 @@ var Me = {
       }
     }]
   }]
-}, Pe = t.defineComponent({
+}, je = t.defineComponent({
   name: "DownloadIcon",
   props: {
     size: {
@@ -172,42 +172,42 @@ var Me = {
   setup(e, r) {
     var {
       attrs: o
-    } = r, l = t.computed(() => e.size), i = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
+    } = r, l = t.computed(() => e.size), a = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
       var n;
       return e.strokeColor ? Array.isArray(e.strokeColor) ? (n = e.strokeColor[1]) !== null && n !== void 0 ? n : e.strokeColor[0] : e.strokeColor : "currentColor";
-    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), b = t.computed(() => {
+    }), u = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), p = t.computed(() => {
       var n;
       return e.fillColor ? Array.isArray(e.fillColor) ? (n = e.fillColor[1]) !== null && n !== void 0 ? n : e.fillColor[0] : e.fillColor : "transparent";
     }), V = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "currentColor"), {
       className: O,
       style: k
-    } = D(l), h = t.computed(() => ["t-icon", "t-icon-download", O.value]), y = t.computed(() => le(le({
+    } = D(l), h = t.computed(() => ["t-icon", "t-icon-download", O.value]), b = t.computed(() => le(le({
       fill: "none"
-    }, k.value), o.style)), v = t.computed(() => ({
+    }, k.value), o.style)), g = t.computed(() => ({
       class: h.value,
-      style: y.value,
+      style: b.value,
       onClick: (n) => {
-        var u;
-        return (u = e.onClick) === null || u === void 0 ? void 0 : u.call(e, {
+        var d;
+        return (d = e.onClick) === null || d === void 0 ? void 0 : d.call(e, {
           e: n
         });
       },
-      strokeColor1: i.value,
+      strokeColor1: a.value,
       strokeColor2: m.value,
-      fillColor1: p.value,
-      fillColor2: b.value,
+      fillColor1: u.value,
+      fillColor2: p.value,
       strokeWidth: e.strokeWidth || 2,
       filledColor: V.value
     }));
-    return () => A(Me, v.value);
+    return () => A(Me, g.value);
   }
 });
 function ne(e, r) {
   var o = Object.keys(e);
   if (Object.getOwnPropertySymbols) {
     var l = Object.getOwnPropertySymbols(e);
-    r && (l = l.filter(function(i) {
-      return Object.getOwnPropertyDescriptor(e, i).enumerable;
+    r && (l = l.filter(function(a) {
+      return Object.getOwnPropertyDescriptor(e, a).enumerable;
     })), o.push.apply(o, l);
   }
   return o;
@@ -270,7 +270,7 @@ var Ee = {
       }
     }]
   }]
-}, je = t.defineComponent({
+}, Pe = t.defineComponent({
   name: "HomeIcon",
   props: {
     size: {
@@ -292,42 +292,42 @@ var Ee = {
   setup(e, r) {
     var {
       attrs: o
-    } = r, l = t.computed(() => e.size), i = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
+    } = r, l = t.computed(() => e.size), a = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
       var n;
       return e.strokeColor ? Array.isArray(e.strokeColor) ? (n = e.strokeColor[1]) !== null && n !== void 0 ? n : e.strokeColor[0] : e.strokeColor : "currentColor";
-    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), b = t.computed(() => {
+    }), u = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), p = t.computed(() => {
       var n;
       return e.fillColor ? Array.isArray(e.fillColor) ? (n = e.fillColor[1]) !== null && n !== void 0 ? n : e.fillColor[0] : e.fillColor : "transparent";
     }), V = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "currentColor"), {
       className: O,
       style: k
-    } = D(l), h = t.computed(() => ["t-icon", "t-icon-home", O.value]), y = t.computed(() => ae(ae({
+    } = D(l), h = t.computed(() => ["t-icon", "t-icon-home", O.value]), b = t.computed(() => ae(ae({
       fill: "none"
-    }, k.value), o.style)), v = t.computed(() => ({
+    }, k.value), o.style)), g = t.computed(() => ({
       class: h.value,
-      style: y.value,
+      style: b.value,
       onClick: (n) => {
-        var u;
-        return (u = e.onClick) === null || u === void 0 ? void 0 : u.call(e, {
+        var d;
+        return (d = e.onClick) === null || d === void 0 ? void 0 : d.call(e, {
           e: n
         });
       },
-      strokeColor1: i.value,
+      strokeColor1: a.value,
       strokeColor2: m.value,
-      fillColor1: p.value,
-      fillColor2: b.value,
+      fillColor1: u.value,
+      fillColor2: p.value,
       strokeWidth: e.strokeWidth || 2,
       filledColor: V.value
     }));
-    return () => A(Ee, v.value);
+    return () => A(Ee, g.value);
   }
 });
 function ie(e, r) {
   var o = Object.keys(e);
   if (Object.getOwnPropertySymbols) {
     var l = Object.getOwnPropertySymbols(e);
-    r && (l = l.filter(function(i) {
-      return Object.getOwnPropertyDescriptor(e, i).enumerable;
+    r && (l = l.filter(function(a) {
+      return Object.getOwnPropertyDescriptor(e, a).enumerable;
     })), o.push.apply(o, l);
   }
   return o;
@@ -405,42 +405,42 @@ var _e = {
   setup(e, r) {
     var {
       attrs: o
-    } = r, l = t.computed(() => e.size), i = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
+    } = r, l = t.computed(() => e.size), a = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
       var n;
       return e.strokeColor ? Array.isArray(e.strokeColor) ? (n = e.strokeColor[1]) !== null && n !== void 0 ? n : e.strokeColor[0] : e.strokeColor : "currentColor";
-    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), b = t.computed(() => {
+    }), u = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), p = t.computed(() => {
       var n;
       return e.fillColor ? Array.isArray(e.fillColor) ? (n = e.fillColor[1]) !== null && n !== void 0 ? n : e.fillColor[0] : e.fillColor : "transparent";
     }), V = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "currentColor"), {
       className: O,
       style: k
-    } = D(l), h = t.computed(() => ["t-icon", "t-icon-location", O.value]), y = t.computed(() => se(se({
+    } = D(l), h = t.computed(() => ["t-icon", "t-icon-location", O.value]), b = t.computed(() => se(se({
       fill: "none"
-    }, k.value), o.style)), v = t.computed(() => ({
+    }, k.value), o.style)), g = t.computed(() => ({
       class: h.value,
-      style: y.value,
+      style: b.value,
       onClick: (n) => {
-        var u;
-        return (u = e.onClick) === null || u === void 0 ? void 0 : u.call(e, {
+        var d;
+        return (d = e.onClick) === null || d === void 0 ? void 0 : d.call(e, {
           e: n
         });
       },
-      strokeColor1: i.value,
+      strokeColor1: a.value,
       strokeColor2: m.value,
-      fillColor1: p.value,
-      fillColor2: b.value,
+      fillColor1: u.value,
+      fillColor2: p.value,
       strokeWidth: e.strokeWidth || 2,
       filledColor: V.value
     }));
-    return () => A(_e, v.value);
+    return () => A(_e, g.value);
   }
 });
 function ce(e, r) {
   var o = Object.keys(e);
   if (Object.getOwnPropertySymbols) {
     var l = Object.getOwnPropertySymbols(e);
-    r && (l = l.filter(function(i) {
-      return Object.getOwnPropertyDescriptor(e, i).enumerable;
+    r && (l = l.filter(function(a) {
+      return Object.getOwnPropertyDescriptor(e, a).enumerable;
     })), o.push.apply(o, l);
   }
   return o;
@@ -518,34 +518,34 @@ var $e = {
   setup(e, r) {
     var {
       attrs: o
-    } = r, l = t.computed(() => e.size), i = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
+    } = r, l = t.computed(() => e.size), a = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
       var n;
       return e.strokeColor ? Array.isArray(e.strokeColor) ? (n = e.strokeColor[1]) !== null && n !== void 0 ? n : e.strokeColor[0] : e.strokeColor : "currentColor";
-    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), b = t.computed(() => {
+    }), u = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), p = t.computed(() => {
       var n;
       return e.fillColor ? Array.isArray(e.fillColor) ? (n = e.fillColor[1]) !== null && n !== void 0 ? n : e.fillColor[0] : e.fillColor : "transparent";
     }), V = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "currentColor"), {
       className: O,
       style: k
-    } = D(l), h = t.computed(() => ["t-icon", "t-icon-map", O.value]), y = t.computed(() => ue(ue({
+    } = D(l), h = t.computed(() => ["t-icon", "t-icon-map", O.value]), b = t.computed(() => ue(ue({
       fill: "none"
-    }, k.value), o.style)), v = t.computed(() => ({
+    }, k.value), o.style)), g = t.computed(() => ({
       class: h.value,
-      style: y.value,
+      style: b.value,
       onClick: (n) => {
-        var u;
-        return (u = e.onClick) === null || u === void 0 ? void 0 : u.call(e, {
+        var d;
+        return (d = e.onClick) === null || d === void 0 ? void 0 : d.call(e, {
           e: n
         });
       },
-      strokeColor1: i.value,
+      strokeColor1: a.value,
       strokeColor2: m.value,
-      fillColor1: p.value,
-      fillColor2: b.value,
+      fillColor1: u.value,
+      fillColor2: p.value,
       strokeWidth: e.strokeWidth || 2,
       filledColor: V.value
     }));
-    return () => A($e, v.value);
+    return () => A($e, g.value);
   }
 }), I, de;
 function Le() {
@@ -590,13 +590,16 @@ async function Te() {
     }
   return "";
 }
-async function Ue(e) {
+async function Ue(e, r = "overworld") {
+  const o = r && r !== "overworld" ? `?dimension=${encodeURIComponent(r)}` : "";
   return await We.get({
-    url: `/api/plugin/mslx-plugin-map-render/map/spawn/${e}`
+    url: `/api/plugin/mslx-plugin-map-render/map/spawn/${e}${o}`
   });
 }
-function me(e, r, o, l = "") {
-  return `${Re()}/api/plugin/mslx-plugin-map-render/map/${e}/${r}/${o}${l}`;
+function me(e, r, o, l = "", a = "overworld") {
+  let u = `${Re()}/api/plugin/mslx-plugin-map-render/map/${e}/${r}/${o}`;
+  const p = [];
+  return l && p.push(l.startsWith("?") ? l.slice(1) : l), a && a !== "overworld" && p.push(`dimension=${encodeURIComponent(a)}`), p.length > 0 ? `${u}?${p.join("&")}` : u;
 }
 const Ie = /* @__PURE__ */ t.defineComponent({
   __name: "MapRenderDialog",
@@ -604,90 +607,90 @@ const Ie = /* @__PURE__ */ t.defineComponent({
     serverId: {}
   },
   setup(e, { expose: r }) {
-    const o = e, l = t.ref(!1), i = t.ref(1), m = t.ref(0), p = t.ref(0);
-    let b = !1, V = 0, O = 0;
-    const k = t.ref(0), h = t.ref(0), y = t.ref([]), v = t.computed(() => {
-      const a = i.value || 1, s = -m.value / a, d = -p.value / a;
+    const o = e, l = t.ref(!1), a = t.ref(1), m = t.ref(0), u = t.ref(0);
+    let p = !1, V = 0, O = 0;
+    const k = t.ref(0), h = t.ref(0), b = t.ref([]), g = t.computed(() => {
+      const i = a.value || 1, s = -m.value / i, f = -u.value / i;
       return {
         blockX: Math.round(s),
-        blockZ: Math.round(d),
+        blockZ: Math.round(f),
         regionX: Math.round(s / 512),
-        regionZ: Math.round(d / 512)
+        regionZ: Math.round(f / 512)
       };
-    }), n = t.ref(!1), u = t.ref("loaded"), N = t.ref(!1), S = t.ref({
+    }), n = t.ref(!1), d = t.ref("loaded"), N = t.ref(!1), S = t.ref({
       startX: 0,
       startZ: 0,
       endX: 0,
       endZ: 0
     }), pe = () => {
       S.value = {
-        startX: v.value.regionX - 1,
-        startZ: v.value.regionZ - 1,
-        endX: v.value.regionX + 1,
-        endZ: v.value.regionZ + 1
+        startX: g.value.regionX - 1,
+        startZ: g.value.regionZ - 1,
+        endX: g.value.regionX + 1,
+        endZ: g.value.regionZ + 1
       }, n.value = !0;
-    }, X = (a, s) => {
-      m.value = -a * i.value, p.value = -s * i.value, R();
+    }, X = (i, s) => {
+      m.value = -i * a.value, u.value = -s * a.value, R();
     }, W = () => {
-      const a = Number(k.value) || 0, s = Number(h.value) || 0;
-      X(a, s);
+      const i = Number(k.value) || 0, s = Number(h.value) || 0;
+      X(i, s);
     }, F = async () => {
       try {
-        const a = await Ue(o.serverId);
-        k.value = a.x, h.value = a.z, X(a.x, a.z);
+        const i = await Ue(o.serverId);
+        k.value = i.x, h.value = i.z, X(i.x, i.z);
       } catch {
         k.value = 0, h.value = 0, X(0, 0);
       }
     }, R = () => {
-      const a = v.value.regionX, s = v.value.regionZ, d = [];
-      for (let f = -1; f <= 1; f++)
-        for (let C = -1; C <= 1; C++) {
-          const w = a + f, c = s + C, P = `${w}_${c}`;
-          if (!y.value.find((E) => E.key === P)) {
-            const E = f * f + C * C;
-            d.push({ x: w, z: c, key: P, distance: E });
+      const i = g.value.regionX, s = g.value.regionZ, f = [];
+      for (let v = -1; v <= 1; v++)
+        for (let y = -1; y <= 1; y++) {
+          const w = i + v, c = s + y, j = `${w}_${c}`;
+          if (!b.value.find((E) => E.key === j)) {
+            const E = v * v + y * y;
+            f.push({ x: w, z: c, key: j, distance: E });
           }
         }
-      d.sort((f, C) => f.distance - C.distance);
+      f.sort((v, y) => v.distance - y.distance);
       const x = ve();
-      d.forEach((f) => {
-        const C = me(o.serverId, f.x, f.z, x);
-        y.value.push({
-          x: f.x,
-          z: f.z,
-          key: f.key,
-          src: C,
+      f.forEach((v) => {
+        const y = me(o.serverId, v.x, v.z, x);
+        b.value.push({
+          x: v.x,
+          z: v.z,
+          key: v.key,
+          src: y,
           loaded: !1
         });
       });
     };
     t.watch(
       () => l.value,
-      async (a) => {
-        a ? (await Te(), i.value = 1, y.value = [], await F()) : y.value = [];
+      async (i) => {
+        i ? (await Te(), a.value = 1, b.value = [], await F()) : b.value = [];
       }
     );
-    const ge = (a) => {
-      b = !0, V = a.clientX - m.value, O = a.clientY - p.value;
-    }, Ce = (a) => {
-      b && (m.value = a.clientX - V, p.value = a.clientY - O, R());
+    const ge = (i) => {
+      p = !0, V = i.clientX - m.value, O = i.clientY - u.value;
+    }, Ce = (i) => {
+      p && (m.value = i.clientX - V, u.value = i.clientY - O, R());
     }, H = () => {
-      b = !1;
-    }, ye = (a) => {
-      a.preventDefault();
-      const s = a.deltaY > 0 ? -0.1 : 0.1, d = Math.min(Math.max(0.2, i.value + s), 5), x = d / i.value;
-      m.value = m.value * x, p.value = p.value * x, i.value = d, R();
+      p = !1;
+    }, ye = (i) => {
+      i.preventDefault();
+      const s = i.deltaY > 0 ? -0.1 : 0.1, f = Math.min(Math.max(0.2, a.value + s), 5), x = f / a.value;
+      m.value = m.value * x, u.value = u.value * x, a.value = f, R();
     }, be = async () => {
       N.value = !0;
       try {
-        let a = [];
-        if (u.value === "loaded") {
-          if (a = y.value.filter((g) => g.loaded), a.length === 0) {
+        let i = [];
+        if (d.value === "loaded") {
+          if (i = b.value.filter((C) => C.loaded), i.length === 0) {
             M.MessagePlugin.warning("当前没有已加载的地图区块"), N.value = !1;
             return;
           }
         } else {
-          const { startX: g, startZ: j, endX: z, endZ: K } = S.value, Y = Math.min(g, z), G = Math.max(g, z), J = Math.min(j, K), Q = Math.max(j, K), ee = (G - Y + 1) * (Q - J + 1);
+          const { startX: C, startZ: P, endX: z, endZ: K } = S.value, Y = Math.min(C, z), G = Math.max(C, z), J = Math.min(P, K), Q = Math.max(P, K), ee = (G - Y + 1) * (Q - J + 1);
           if (ee > 100) {
             M.MessagePlugin.warning(`选择的区块数量(${ee})过大，最大支持同时导出 100 个区块`), N.value = !1;
             return;
@@ -695,30 +698,30 @@ const Ie = /* @__PURE__ */ t.defineComponent({
           const he = ve();
           for (let $ = Y; $ <= G; $++)
             for (let Z = J; Z <= Q; Z++)
-              a.push({
+              i.push({
                 x: $,
                 z: Z,
                 src: me(o.serverId, $, Z, he)
               });
         }
-        const s = M.MessagePlugin.loading("正在拼接地图图像，请稍候..."), d = Math.min(...a.map((g) => g.x)), x = Math.max(...a.map((g) => g.x)), f = Math.min(...a.map((g) => g.z)), C = Math.max(...a.map((g) => g.z)), w = document.createElement("canvas");
-        w.width = (x - d + 1) * 512, w.height = (C - f + 1) * 512;
+        const s = M.MessagePlugin.loading("正在拼接地图图像，请稍候..."), f = Math.min(...i.map((C) => C.x)), x = Math.max(...i.map((C) => C.x)), v = Math.min(...i.map((C) => C.z)), y = Math.max(...i.map((C) => C.z)), w = document.createElement("canvas");
+        w.width = (x - f + 1) * 512, w.height = (y - v + 1) * 512;
         const c = w.getContext("2d");
         if (!c) throw new Error("无法创建 Canvas 上下文");
         c.fillStyle = document.documentElement.classList.contains("dark") ? "#18181b" : "#fafafa", c.fillRect(0, 0, w.width, w.height);
-        const P = a.map((g) => new Promise((j) => {
+        const j = i.map((C) => new Promise((P) => {
           const z = new Image();
           z.crossOrigin = "anonymous", z.onload = () => {
-            c.drawImage(z, (g.x - d) * 512, (g.z - f) * 512, 512, 512), j();
+            c.drawImage(z, (C.x - f) * 512, (C.z - v) * 512, 512, 512), P();
           }, z.onerror = () => {
-            j();
-          }, z.src = g.src;
+            P();
+          }, z.src = C.src;
         }));
-        await Promise.all(P);
+        await Promise.all(j);
         const E = w.toDataURL("image/png"), T = document.createElement("a");
-        T.href = E, T.download = `world_map_region_${d}_${f}_to_${x}_${C}.png`, T.click(), M.MessagePlugin.close(s), M.MessagePlugin.success("地图导出成功"), n.value = !1;
-      } catch (a) {
-        console.error("地图导出失败:", a), M.MessagePlugin.error("地图导出失败，请检查网络或控制台日志");
+        T.href = E, T.download = `world_map_region_${f}_${v}_to_${x}_${y}.png`, T.click(), M.MessagePlugin.close(s), M.MessagePlugin.success("地图导出成功"), n.value = !1;
+      } catch (i) {
+        console.error("地图导出失败:", i), M.MessagePlugin.error("地图导出失败，请检查网络或控制台日志");
       } finally {
         N.value = !1;
       }
@@ -732,10 +735,10 @@ const Ie = /* @__PURE__ */ t.defineComponent({
       close: () => {
         l.value = !1;
       }
-    }), (a, s) => {
-      const d = t.resolveComponent("t-input"), x = t.resolveComponent("t-button"), f = t.resolveComponent("t-dialog"), C = t.resolveComponent("t-radio-button"), w = t.resolveComponent("t-radio-group");
+    }), (i, s) => {
+      const f = t.resolveComponent("t-input"), x = t.resolveComponent("t-button"), v = t.resolveComponent("t-dialog"), y = t.resolveComponent("t-radio-button"), w = t.resolveComponent("t-radio-group");
       return t.openBlock(), t.createElementBlock("div", null, [
-        t.createVNode(f, {
+        t.createVNode(v, {
           attach: "body",
           visible: l.value,
           header: "网页地图渲染器",
@@ -755,9 +758,9 @@ const Ie = /* @__PURE__ */ t.defineComponent({
             }, [
               t.createElementVNode("div", {
                 class: "absolute top-1/2 left-1/2 origin-center transition-transform duration-[50ms] ease-linear",
-                style: t.normalizeStyle({ transform: `translate(${m.value}px, ${p.value}px) scale(${i.value})` })
+                style: t.normalizeStyle({ transform: `translate(${m.value}px, ${u.value}px) scale(${a.value})` })
               }, [
-                (t.openBlock(!0), t.createElementBlock(t.Fragment, null, t.renderList(y.value, (c) => (t.openBlock(), t.createElementBlock("div", {
+                (t.openBlock(!0), t.createElementBlock(t.Fragment, null, t.renderList(b.value, (c) => (t.openBlock(), t.createElementBlock("div", {
                   key: c.key,
                   class: "absolute w-[512px] h-[512px] -ml-[256px] -mt-[256px] flex items-center justify-center bg-zinc-100/50 dark:bg-zinc-900/50",
                   style: t.normalizeStyle({ left: `${c.x * 512}px`, top: `${c.z * 512}px` })
@@ -765,7 +768,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                   t.createElementVNode("img", {
                     src: c.src,
                     class: t.normalizeClass(["w-full h-full pointer-events-none opacity-0 transition-opacity duration-500 ease-out [image-rendering:pixelated]", { "opacity-100": c.loaded }]),
-                    onLoad: (P) => c.loaded = !0,
+                    onLoad: (j) => c.loaded = !0,
                     alt: "tile",
                     draggable: "false"
                   }, null, 42, ["src", "onLoad"])
@@ -779,7 +782,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                 onWheel: s[3] || (s[3] = t.withModifiers(() => {
                 }, ["stop"]))
               }, [
-                t.createVNode(d, {
+                t.createVNode(f, {
                   modelValue: k.value,
                   "onUpdate:modelValue": s[0] || (s[0] = (c) => k.value = c),
                   type: "number",
@@ -787,7 +790,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                   class: "!w-[90px]",
                   onEnter: W
                 }, null, 8, ["modelValue"]),
-                t.createVNode(d, {
+                t.createVNode(f, {
                   modelValue: h.value,
                   "onUpdate:modelValue": s[1] || (s[1] = (c) => h.value = c),
                   type: "number",
@@ -815,7 +818,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                   title: "回到世界出生点"
                 }, {
                   icon: t.withCtx(() => [
-                    t.createVNode(t.unref(je))
+                    t.createVNode(t.unref(Pe))
                   ]),
                   _: 1
                 }),
@@ -827,7 +830,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                   title: "导出地图"
                 }, {
                   icon: t.withCtx(() => [
-                    t.createVNode(t.unref(Pe))
+                    t.createVNode(t.unref(je))
                   ]),
                   default: t.withCtx(() => [
                     t.createTextVNode(" 导出 ")
@@ -838,15 +841,15 @@ const Ie = /* @__PURE__ */ t.defineComponent({
               t.createElementVNode("div", { class: "absolute bottom-4 right-4 p-4 flex flex-col font-mono text-sm bg-[var(--td-bg-color-container)] opacity-95 backdrop-blur-md rounded-xl border border-[var(--td-component-border)] shadow-md z-20 pointer-events-none" }, [
                 t.createElementVNode("div", { class: "flex justify-between items-center gap-6 mb-2" }, [
                   t.createElementVNode("span", { class: "text-xs text-[var(--td-text-color-secondary)]" }, "方块坐标 (Block):"),
-                  t.createElementVNode("span", { class: "font-bold text-[var(--color-primary)]" }, "X: " + t.toDisplayString(v.value.blockX) + ", Z: " + t.toDisplayString(v.value.blockZ), 1)
+                  t.createElementVNode("span", { class: "font-bold text-[var(--color-primary)]" }, "X: " + t.toDisplayString(g.value.blockX) + ", Z: " + t.toDisplayString(g.value.blockZ), 1)
                 ]),
                 t.createElementVNode("div", { class: "flex justify-between items-center gap-6 mb-2" }, [
                   t.createElementVNode("span", { class: "text-xs text-[var(--td-text-color-secondary)]" }, "区块区号 (Region):"),
-                  t.createElementVNode("span", { class: "font-bold text-[var(--color-primary)]" }, "r." + t.toDisplayString(v.value.regionX) + "." + t.toDisplayString(v.value.regionZ), 1)
+                  t.createElementVNode("span", { class: "font-bold text-[var(--color-primary)]" }, "r." + t.toDisplayString(g.value.regionX) + "." + t.toDisplayString(g.value.regionZ), 1)
                 ]),
                 t.createElementVNode("div", { class: "flex justify-between items-center gap-6 mb-3" }, [
                   t.createElementVNode("span", { class: "text-xs text-[var(--td-text-color-secondary)]" }, "当前缩放:"),
-                  t.createElementVNode("span", { class: "font-bold text-[var(--color-primary)]" }, t.toDisplayString(Math.round(i.value * 100)) + "%", 1)
+                  t.createElementVNode("span", { class: "font-bold text-[var(--color-primary)]" }, t.toDisplayString(Math.round(a.value * 100)) + "%", 1)
                 ]),
                 t.createElementVNode("div", { class: "pt-2.5 border-t border-dashed border-zinc-200/80 dark:border-zinc-700/80 text-right text-[11px] text-[var(--td-text-color-secondary)] font-sans tracking-widest" }, " 🖱️ 滚轮缩放 | 按住拖拽 ")
               ])
@@ -854,7 +857,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
           ]),
           _: 1
         }, 8, ["visible"]),
-        t.createVNode(f, {
+        t.createVNode(v, {
           visible: n.value,
           "onUpdate:visible": s[9] || (s[9] = (c) => n.value = c),
           header: "导出地图为 PNG",
@@ -873,18 +876,18 @@ const Ie = /* @__PURE__ */ t.defineComponent({
               t.createElementVNode("div", { class: "flex items-center gap-4" }, [
                 t.createElementVNode("span", { class: "text-sm text-[var(--td-text-color-primary)] whitespace-nowrap" }, "导出模式"),
                 t.createVNode(w, {
-                  modelValue: u.value,
-                  "onUpdate:modelValue": s[4] || (s[4] = (c) => u.value = c),
+                  modelValue: d.value,
+                  "onUpdate:modelValue": s[4] || (s[4] = (c) => d.value = c),
                   variant: "default-filled"
                 }, {
                   default: t.withCtx(() => [
-                    t.createVNode(C, { value: "loaded" }, {
+                    t.createVNode(y, { value: "loaded" }, {
                       default: t.withCtx(() => [
                         t.createTextVNode("当前可视范围(已加载)")
                       ]),
                       _: 1
                     }),
-                    t.createVNode(C, { value: "custom" }, {
+                    t.createVNode(y, { value: "custom" }, {
                       default: t.withCtx(() => [
                         t.createTextVNode("自定义区块范围")
                       ]),
@@ -894,14 +897,14 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                   _: 1
                 }, 8, ["modelValue"])
               ]),
-              u.value === "custom" ? (t.openBlock(), t.createElementBlock("div", {
+              d.value === "custom" ? (t.openBlock(), t.createElementBlock("div", {
                 key: 0,
                 class: "flex flex-col gap-3 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800"
               }, [
                 t.createElementVNode("div", { class: "text-xs text-[var(--td-text-color-secondary)] mb-1" }, " 注意：单位为区块(Region)坐标，而非方块坐标。为防止内存溢出，单次最多导出 100 个区块。 "),
                 t.createElementVNode("div", { class: "flex items-center gap-2" }, [
                   t.createElementVNode("span", { class: "shrink-0 whitespace-nowrap text-sm text-[var(--td-text-color-secondary)]" }, "起始点："),
-                  t.createVNode(d, {
+                  t.createVNode(f, {
                     modelValue: S.value.startX,
                     "onUpdate:modelValue": s[5] || (s[5] = (c) => S.value.startX = c),
                     modelModifiers: { number: !0 },
@@ -909,7 +912,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                     placeholder: "Region X"
                   }, null, 8, ["modelValue"]),
                   t.createElementVNode("span", { class: "text-zinc-400 shrink-0" }, ","),
-                  t.createVNode(d, {
+                  t.createVNode(f, {
                     modelValue: S.value.startZ,
                     "onUpdate:modelValue": s[6] || (s[6] = (c) => S.value.startZ = c),
                     modelModifiers: { number: !0 },
@@ -919,7 +922,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                 ]),
                 t.createElementVNode("div", { class: "flex items-center gap-2" }, [
                   t.createElementVNode("span", { class: "shrink-0 whitespace-nowrap text-sm text-[var(--td-text-color-secondary)]" }, "结束点："),
-                  t.createVNode(d, {
+                  t.createVNode(f, {
                     modelValue: S.value.endX,
                     "onUpdate:modelValue": s[7] || (s[7] = (c) => S.value.endX = c),
                     modelModifiers: { number: !0 },
@@ -927,7 +930,7 @@ const Ie = /* @__PURE__ */ t.defineComponent({
                     placeholder: "Region X"
                   }, null, 8, ["modelValue"]),
                   t.createElementVNode("span", { class: "text-zinc-400 shrink-0" }, ","),
-                  t.createVNode(d, {
+                  t.createVNode(f, {
                     modelValue: S.value.endZ,
                     "onUpdate:modelValue": s[8] || (s[8] = (c) => S.value.endZ = c),
                     modelModifiers: { number: !0 },
@@ -945,8 +948,8 @@ const Ie = /* @__PURE__ */ t.defineComponent({
   }
 }), qe = (e, r) => {
   const o = e.__vccOpts || e;
-  for (const [l, i] of r)
-    o[l] = i;
+  for (const [l, a] of r)
+    o[l] = a;
   return o;
 }, Be = /* @__PURE__ */ qe(Ie, [["__scopeId", "data-v-25b72e42"]]), Fe = {
   name: "MSLX.Plugin.MapRender",

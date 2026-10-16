@@ -167,22 +167,113 @@ public class MapRenderController : ControllerBase
         return check.FullPath;
     }
 
-    private string GetRegionDirectoryPath(McServerInfo.ServerInfo server)
+    private string GetRegionDirectoryPath(McServerInfo.ServerInfo server, string dimension = "overworld")
     {
         var worldPath = GetWorldPath(server);
-        var relativePath = NormalizeRelativePath(
-            server.RegionPath,
-            "region",
-            "Region 目录路径必须是地图目录内的相对路径"
-        );
-        var check = GetSafePath(worldPath, relativePath);
-        if (!check.IsSafe) throw new ArgumentException(check.Message);
-        return check.FullPath;
+
+        // 1. 若配置了非默认的自定义 RegionPath，优先尝试该配置
+        if (!string.IsNullOrWhiteSpace(server.RegionPath) &&
+            !server.RegionPath.Equals("region", StringComparison.OrdinalIgnoreCase))
+        {
+            var customRelative = NormalizeRelativePath(
+                server.RegionPath,
+                "region",
+                "Region 目录路径必须是地图目录内的相对路径"
+            );
+            var customCheck = GetSafePath(worldPath, customRelative);
+            if (customCheck.IsSafe && Directory.Exists(customCheck.FullPath))
+            {
+                return customCheck.FullPath;
+            }
+        }
+
+        var dimName = dimension.Contains(':') ? dimension.Split(':')[1] : dimension;
+        if (string.IsNullOrWhiteSpace(dimName)) dimName = "overworld";
+
+        var candidatePaths = new List<string>();
+
+        if (dimName.Equals("overworld", StringComparison.OrdinalIgnoreCase))
+        {
+            // 新版结构: world/dimensions/minecraft/overworld/region
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", "minecraft", "overworld", "region"));
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", "minecraft", "overworld"));
+            candidatePaths.Add(Path.Combine(server.Base, "dimensions", "minecraft", "overworld", "region"));
+            candidatePaths.Add(Path.Combine(server.Base, "dimensions", "minecraft", "overworld"));
+            // 旧版原版结构: world/region
+            candidatePaths.Add(Path.Combine(worldPath, "region"));
+        }
+        else if (dimName.Equals("the_nether", StringComparison.OrdinalIgnoreCase) || dimName.Equals("nether", StringComparison.OrdinalIgnoreCase))
+        {
+            // 新版结构: world/dimensions/minecraft/the_nether/region
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", "minecraft", "the_nether", "region"));
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", "minecraft", "the_nether"));
+            candidatePaths.Add(Path.Combine(server.Base, "dimensions", "minecraft", "the_nether", "region"));
+            // 旧版原版结构: world/DIM-1/region
+            candidatePaths.Add(Path.Combine(worldPath, "DIM-1", "region"));
+            candidatePaths.Add(Path.Combine(worldPath, "DIM-1"));
+            // Spigot/Paper 结构: world_nether/DIM-1/region
+            candidatePaths.Add(Path.Combine(server.Base, "world_nether", "DIM-1", "region"));
+        }
+        else if (dimName.Equals("the_end", StringComparison.OrdinalIgnoreCase) || dimName.Equals("end", StringComparison.OrdinalIgnoreCase))
+        {
+            // 新版结构: world/dimensions/minecraft/the_end/region
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", "minecraft", "the_end", "region"));
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", "minecraft", "the_end"));
+            candidatePaths.Add(Path.Combine(server.Base, "dimensions", "minecraft", "the_end", "region"));
+            // 旧版原版结构: world/DIM1/region
+            candidatePaths.Add(Path.Combine(worldPath, "DIM1", "region"));
+            candidatePaths.Add(Path.Combine(worldPath, "DIM1"));
+            // Spigot/Paper 结构: world_the_end/DIM1/region
+            candidatePaths.Add(Path.Combine(server.Base, "world_the_end", "DIM1", "region"));
+        }
+        else
+        {
+            // 自定义/模组维度: dimensions/<namespace>/<dimension>/region
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", "minecraft", dimName, "region"));
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", "minecraft", dimName));
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", dimName, "region"));
+            candidatePaths.Add(Path.Combine(worldPath, "dimensions", dimName));
+        }
+
+        // 优先检查哪个目录实际存在且含有 .mca 文件
+        string? firstExistingDir = null;
+        foreach (var path in candidatePaths)
+        {
+            try
+            {
+                var rel = Path.GetRelativePath(server.Base, path);
+                var check = GetSafePath(server.Base, rel);
+                if (!check.IsSafe) continue;
+
+                if (Directory.Exists(check.FullPath))
+                {
+                    firstExistingDir ??= check.FullPath;
+                    if (Directory.EnumerateFiles(check.FullPath, "*.mca").Any())
+                    {
+                        return check.FullPath;
+                    }
+                }
+            }
+            catch
+            {
+                // ignore
+            }
+        }
+
+        if (firstExistingDir != null) return firstExistingDir;
+
+        // 若目录尚不存在，根据特征返回默认路径
+        if (Directory.Exists(Path.Combine(worldPath, "dimensions", "minecraft")))
+        {
+            return Path.Combine(worldPath, "dimensions", "minecraft", "overworld", "region");
+        }
+
+        return Path.Combine(worldPath, "region");
     }
 
     [HttpGet("spawn/{id}")]
     [AllowTokenScope(TokenScopes.Media)]
-    public IActionResult GetWorldSpawn(uint id)
+    public IActionResult GetWorldSpawn(uint id, [FromQuery] string dimension = "overworld")
     {
         var userId = User?.FindFirst("UserId")?.Value ?? "";
         if (!SDK.MSLX.Config.Users.HasResourcePermission(userId, "server", (int)id))
@@ -192,7 +283,13 @@ public class MapRenderController : ControllerBase
         {
             var server = GetServer(id);
             var worldPath = GetWorldPath(server);
+
             var levelDatPath = Path.Combine(worldPath, "level.dat");
+            if (!System.IO.File.Exists(levelDatPath))
+            {
+                var altLevelDat = Path.Combine(worldPath, "dimensions", "minecraft", "overworld", "level.dat");
+                if (System.IO.File.Exists(altLevelDat)) levelDatPath = altLevelDat;
+            }
 
             if (!System.IO.File.Exists(levelDatPath))
                 return Ok(new ApiResponse<object> { Code = 200, Data = new { x = 0, z = 0 } });
@@ -215,7 +312,7 @@ public class MapRenderController : ControllerBase
 
     [HttpGet("{id}/{regionX}/{regionZ}")]
     [AllowTokenScope(TokenScopes.Media)]
-    public IActionResult GetRegionMap(uint id, int regionX = 0, int regionZ = 0)
+    public IActionResult GetRegionMap(uint id, int regionX = 0, int regionZ = 0, [FromQuery] string dimension = "overworld")
     {
         var userId = User?.FindFirst("UserId")?.Value ?? "";
         if (!SDK.MSLX.Config.Users.HasResourcePermission(userId, "server", (int)id))
@@ -224,7 +321,7 @@ public class MapRenderController : ControllerBase
         try
         {
             var server = GetServer(id);
-            var regionDirectoryPath = GetRegionDirectoryPath(server);
+            var regionDirectoryPath = GetRegionDirectoryPath(server, dimension);
             var mcaFilePath = Path.Combine(regionDirectoryPath, $"r.{regionX}.{regionZ}.mca");
 
             using var image = new Image<Rgba32>(512, 512);
@@ -257,13 +354,30 @@ public class MapRenderController : ControllerBase
                     var sections = level.Get<NbtList>("sections") ?? level.Get<NbtList>("Sections");
                     if (sections == null) continue;
 
+                    // 计算当前版本的 Y 轴基础偏移 (1.18+ 为 -64..319, 旧版为 0..256)
+                    int minSectionY = 0;
+                    var yPosTag = level.Get<NbtInt>("yPos");
+                    if (yPosTag != null)
+                    {
+                        minSectionY = yPosTag.Value;
+                    }
+                    else if (sections.Count > 0)
+                    {
+                        minSectionY = sections.OfType<NbtCompound>()
+                            .Select(s => (int)(sbyte)(s.Get<NbtByte>("Y")?.Value ?? 0))
+                            .DefaultIfEmpty(0)
+                            .Min();
+                    }
+                    int minY = minSectionY < 0 ? minSectionY * 16 : 0;
+                    int heightOffset = -minY + 1;
+
                     for (int x = 0; x < 16; x++)
                     {
                         for (int z = 0; z < 16; z++)
                         {
                             int idx = z * 16 + x;
-                            int topY = topHeights[idx] - 65;
-                            int floorY = floorHeights[idx] - 65;
+                            int topY = topHeights[idx] - heightOffset;
+                            int floorY = floorHeights[idx] - heightOffset;
 
                             string blockName = GetBlockNameAtY(sections, x, topY, z);
 
@@ -296,7 +410,7 @@ public class MapRenderController : ControllerBase
                             }
 
                             // 伪 3D 山体阴影
-                            int northY = (z > 0) ? (topHeights[idx - 16] - 65) : topY;
+                            int northY = (z > 0) ? (topHeights[idx - 16] - heightOffset) : topY;
                             int diff = topY - northY;
                             Rgba32 finalColor = isWater ? baseColor : ApplyHillshading(baseColor, diff);
 
@@ -359,8 +473,9 @@ public class MapRenderController : ControllerBase
 
         foreach (NbtCompound sec in sections)
         {
-            var yTag = sec.Get<NbtByte>("Y")?.Value;
-            if (yTag != sectionY) continue;
+            var rawY = sec.Get<NbtByte>("Y")?.Value;
+            if (rawY == null) continue;
+            if ((sbyte)rawY.Value != sectionY) continue;
 
             var blockStates = sec.Get<NbtCompound>("block_states");
             if (blockStates == null) return "minecraft:air";
