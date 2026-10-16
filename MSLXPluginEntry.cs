@@ -17,6 +17,7 @@ public class MSLXPluginEntry : IPlugin
     public string Description => "基于 Minecraft 存档 Region 文件的 2D 像素地图渲染与切片拼接导出插件";
     public string Version => "1.0.0";
     public string Icon => "yg.gif";
+    public bool HasPublicPages => true;
     public string MinSDKVersion => "1.6.4";
     public string Developer => "xiaoyu";
     public string AuthorUrl => "https://mslx.mslmc.cn/plugin-dev/init/start/";
