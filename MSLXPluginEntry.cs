@@ -5,6 +5,8 @@ using Microsoft.Extensions.DependencyInjection;
 using MSLX.SDK;
 using MSLX.SDK.Interfaces;
 
+using MSLX.Plugin.MapRender.Services;
+
 [assembly: ApplicationPart("MSLX.Plugin.MapRender")]
 
 namespace MSLX.Plugin.MapRender;
@@ -18,7 +20,7 @@ public class MSLXPluginEntry : IPlugin
     public string Version => "1.0.0";
     public string Icon => "yg.gif";
     public bool HasPublicPages => true;
-    public string MinSDKVersion => "1.6.4";
+    public string MinSDKVersion => "1.7.3";
     public string Developer => "xiaoyu";
     public string AuthorUrl => "https://mslx.mslmc.cn/plugin-dev/init/start/";
     public string PluginUrl => "https://github.com/MSLTeam/mslx-plugin-map-render";
@@ -44,5 +46,6 @@ public class MSLXPluginEntry : IPlugin
 
     public void OnRegisterServices(IServiceCollection services)
     {
+        services.AddSingleton<MapRenderService>();
     }
 }
