@@ -18,16 +18,9 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.7" />
-    <PackageReference Include="MSLX.SDK" Version="1.6.3.3-dev-202609171123" ExcludeAssets="runtime"/>
+    <PackageReference Include="MSLX.SDK" Version="1.7.2-dev-202610161052" ExcludeAssets="runtime"/>
     <PackageReference Include="fNbt" Version="1.0.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="3.1.12" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="MSLX.SDK">
-      <HintPath>Library\MSLX.SDK.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>

@@ -2,63 +2,63 @@
 function xe(e) {
   return e && e.__esModule && Object.prototype.hasOwnProperty.call(e, "default") ? e.default : e;
 }
-var T, ee;
+var U, te;
 function we() {
-  return ee || (ee = 1, T = Vue), T;
+  return te || (te = 1, U = Vue), U;
 }
 var t = we();
-function A(e) {
+function _(e) {
   "@babel/helpers - typeof";
-  return A = typeof Symbol == "function" && typeof Symbol.iterator == "symbol" ? function(r) {
+  return _ = typeof Symbol == "function" && typeof Symbol.iterator == "symbol" ? function(r) {
     return typeof r;
   } : function(r) {
     return r && typeof Symbol == "function" && r.constructor === Symbol && r !== Symbol.prototype ? "symbol" : typeof r;
-  }, A(e);
+  }, _(e);
 }
 function Ve(e, r) {
-  if (A(e) != "object" || !e) return e;
+  if (_(e) != "object" || !e) return e;
   var o = e[Symbol.toPrimitive];
   if (o !== void 0) {
     var l = o.call(e, r);
-    if (A(l) != "object") return l;
+    if (_(l) != "object") return l;
     throw new TypeError("@@toPrimitive must return a primitive value.");
   }
   return (r === "string" ? String : Number)(e);
 }
-function Se(e) {
+function Oe(e) {
   var r = Ve(e, "string");
-  return A(r) == "symbol" ? r : r + "";
+  return _(r) == "symbol" ? r : r + "";
 }
-function X(e, r, o) {
-  return (r = Se(r)) in e ? Object.defineProperty(e, r, {
+function L(e, r, o) {
+  return (r = Oe(r)) in e ? Object.defineProperty(e, r, {
     value: o,
     enumerable: !0,
     configurable: !0,
     writable: !0
   }) : e[r] = o, e;
 }
-var te = (e) => {
+var re = (e) => {
   var r = ["strokeLinecap", "fillRule", "clipRule", "strokeWidth"];
   return r.includes(e) ? e.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2").toLowerCase() : e;
-}, j = (e, r) => {
+}, A = (e, r) => {
   var o = {};
   if (e.attrs)
     for (var [l, i] of Object.entries(e.attrs))
       if (typeof i == "string" && i.startsWith("props.")) {
         var m = i.split(".")[1];
-        o[te(l)] = r[m];
+        o[re(l)] = r[m];
       } else
-        o[te(l)] = i;
+        o[re(l)] = i;
   e.tag === "svg" && (o.class = r.class, o.style = r.style, o.onClick = r.onClick);
-  var p = e.children ? e.children.map((k) => j(k, r)) : [];
+  var p = e.children ? e.children.map((b) => A(b, r)) : [];
   return t.h(e.tag, o, p);
-}, Oe = "t", Ee = {
-  classPrefix: Oe
+}, Se = "t", ze = {
+  classPrefix: Se
 };
-function Me() {
+function Ne() {
   var {
     classPrefix: e
-  } = Ee;
+  } = ze;
   return {
     SIZE: {
       default: "",
@@ -87,8 +87,8 @@ function Me() {
     }
   };
 }
-function L(e) {
-  var r = Me().SIZE, o = t.computed(() => e.value in r ? r[e.value] : ""), l = t.computed(() => e.value === void 0 || e.value in r ? {} : {
+function D(e) {
+  var r = Ne().SIZE, o = t.computed(() => e.value in r ? r[e.value] : ""), l = t.computed(() => e.value === void 0 || e.value in r ? {} : {
     fontSize: e.value
   });
   return {
@@ -96,7 +96,7 @@ function L(e) {
     className: o
   };
 }
-function re(e, r) {
+function oe(e, r) {
   var o = Object.keys(e);
   if (Object.getOwnPropertySymbols) {
     var l = Object.getOwnPropertySymbols(e);
@@ -106,18 +106,18 @@ function re(e, r) {
   }
   return o;
 }
-function oe(e) {
+function le(e) {
   for (var r = 1; r < arguments.length; r++) {
     var o = arguments[r] != null ? arguments[r] : {};
-    r % 2 ? re(Object(o), !0).forEach(function(l) {
-      X(e, l, o[l]);
-    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(o)) : re(Object(o)).forEach(function(l) {
+    r % 2 ? oe(Object(o), !0).forEach(function(l) {
+      L(e, l, o[l]);
+    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(o)) : oe(Object(o)).forEach(function(l) {
       Object.defineProperty(e, l, Object.getOwnPropertyDescriptor(o, l));
     });
   }
   return e;
 }
-var Ne = {
+var Me = {
   tag: "svg",
   attrs: {
     fill: "none",
@@ -150,7 +150,7 @@ var Ne = {
       }
     }]
   }]
-}, _e = t.defineComponent({
+}, Pe = t.defineComponent({
   name: "DownloadIcon",
   props: {
     size: {
@@ -175,15 +175,15 @@ var Ne = {
     } = r, l = t.computed(() => e.size), i = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
       var n;
       return e.strokeColor ? Array.isArray(e.strokeColor) ? (n = e.strokeColor[1]) !== null && n !== void 0 ? n : e.strokeColor[0] : e.strokeColor : "currentColor";
-    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), k = t.computed(() => {
+    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), b = t.computed(() => {
       var n;
       return e.fillColor ? Array.isArray(e.fillColor) ? (n = e.fillColor[1]) !== null && n !== void 0 ? n : e.fillColor[0] : e.fillColor : "transparent";
     }), V = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "currentColor"), {
-      className: S,
-      style: b
-    } = L(l), h = t.computed(() => ["t-icon", "t-icon-download", S.value]), y = t.computed(() => oe(oe({
+      className: O,
+      style: k
+    } = D(l), h = t.computed(() => ["t-icon", "t-icon-download", O.value]), y = t.computed(() => le(le({
       fill: "none"
-    }, b.value), o.style)), v = t.computed(() => ({
+    }, k.value), o.style)), v = t.computed(() => ({
       class: h.value,
       style: y.value,
       onClick: (n) => {
@@ -195,14 +195,14 @@ var Ne = {
       strokeColor1: i.value,
       strokeColor2: m.value,
       fillColor1: p.value,
-      fillColor2: k.value,
+      fillColor2: b.value,
       strokeWidth: e.strokeWidth || 2,
       filledColor: V.value
     }));
-    return () => j(Ne, v.value);
+    return () => A(Me, v.value);
   }
 });
-function le(e, r) {
+function ne(e, r) {
   var o = Object.keys(e);
   if (Object.getOwnPropertySymbols) {
     var l = Object.getOwnPropertySymbols(e);
@@ -212,18 +212,18 @@ function le(e, r) {
   }
   return o;
 }
-function ne(e) {
+function ae(e) {
   for (var r = 1; r < arguments.length; r++) {
     var o = arguments[r] != null ? arguments[r] : {};
-    r % 2 ? le(Object(o), !0).forEach(function(l) {
-      X(e, l, o[l]);
-    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(o)) : le(Object(o)).forEach(function(l) {
+    r % 2 ? ne(Object(o), !0).forEach(function(l) {
+      L(e, l, o[l]);
+    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(o)) : ne(Object(o)).forEach(function(l) {
       Object.defineProperty(e, l, Object.getOwnPropertyDescriptor(o, l));
     });
   }
   return e;
 }
-var ze = {
+var Ee = {
   tag: "svg",
   attrs: {
     fill: "none",
@@ -270,7 +270,7 @@ var ze = {
       }
     }]
   }]
-}, Pe = t.defineComponent({
+}, je = t.defineComponent({
   name: "HomeIcon",
   props: {
     size: {
@@ -295,15 +295,15 @@ var ze = {
     } = r, l = t.computed(() => e.size), i = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
       var n;
       return e.strokeColor ? Array.isArray(e.strokeColor) ? (n = e.strokeColor[1]) !== null && n !== void 0 ? n : e.strokeColor[0] : e.strokeColor : "currentColor";
-    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), k = t.computed(() => {
+    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), b = t.computed(() => {
       var n;
       return e.fillColor ? Array.isArray(e.fillColor) ? (n = e.fillColor[1]) !== null && n !== void 0 ? n : e.fillColor[0] : e.fillColor : "transparent";
     }), V = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "currentColor"), {
-      className: S,
-      style: b
-    } = L(l), h = t.computed(() => ["t-icon", "t-icon-home", S.value]), y = t.computed(() => ne(ne({
+      className: O,
+      style: k
+    } = D(l), h = t.computed(() => ["t-icon", "t-icon-home", O.value]), y = t.computed(() => ae(ae({
       fill: "none"
-    }, b.value), o.style)), v = t.computed(() => ({
+    }, k.value), o.style)), v = t.computed(() => ({
       class: h.value,
       style: y.value,
       onClick: (n) => {
@@ -315,14 +315,14 @@ var ze = {
       strokeColor1: i.value,
       strokeColor2: m.value,
       fillColor1: p.value,
-      fillColor2: k.value,
+      fillColor2: b.value,
       strokeWidth: e.strokeWidth || 2,
       filledColor: V.value
     }));
-    return () => j(ze, v.value);
+    return () => A(Ee, v.value);
   }
 });
-function ae(e, r) {
+function ie(e, r) {
   var o = Object.keys(e);
   if (Object.getOwnPropertySymbols) {
     var l = Object.getOwnPropertySymbols(e);
@@ -332,18 +332,18 @@ function ae(e, r) {
   }
   return o;
 }
-function ie(e) {
+function se(e) {
   for (var r = 1; r < arguments.length; r++) {
     var o = arguments[r] != null ? arguments[r] : {};
-    r % 2 ? ae(Object(o), !0).forEach(function(l) {
-      X(e, l, o[l]);
-    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(o)) : ae(Object(o)).forEach(function(l) {
+    r % 2 ? ie(Object(o), !0).forEach(function(l) {
+      L(e, l, o[l]);
+    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(o)) : ie(Object(o)).forEach(function(l) {
       Object.defineProperty(e, l, Object.getOwnPropertyDescriptor(o, l));
     });
   }
   return e;
 }
-var Ae = {
+var _e = {
   tag: "svg",
   attrs: {
     fill: "none",
@@ -383,7 +383,7 @@ var Ae = {
       }
     }]
   }]
-}, je = t.defineComponent({
+}, Ae = t.defineComponent({
   name: "LocationIcon",
   props: {
     size: {
@@ -408,15 +408,15 @@ var Ae = {
     } = r, l = t.computed(() => e.size), i = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
       var n;
       return e.strokeColor ? Array.isArray(e.strokeColor) ? (n = e.strokeColor[1]) !== null && n !== void 0 ? n : e.strokeColor[0] : e.strokeColor : "currentColor";
-    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), k = t.computed(() => {
+    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), b = t.computed(() => {
       var n;
       return e.fillColor ? Array.isArray(e.fillColor) ? (n = e.fillColor[1]) !== null && n !== void 0 ? n : e.fillColor[0] : e.fillColor : "transparent";
     }), V = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "currentColor"), {
-      className: S,
-      style: b
-    } = L(l), h = t.computed(() => ["t-icon", "t-icon-location", S.value]), y = t.computed(() => ie(ie({
+      className: O,
+      style: k
+    } = D(l), h = t.computed(() => ["t-icon", "t-icon-location", O.value]), y = t.computed(() => se(se({
       fill: "none"
-    }, b.value), o.style)), v = t.computed(() => ({
+    }, k.value), o.style)), v = t.computed(() => ({
       class: h.value,
       style: y.value,
       onClick: (n) => {
@@ -428,14 +428,14 @@ var Ae = {
       strokeColor1: i.value,
       strokeColor2: m.value,
       fillColor1: p.value,
-      fillColor2: k.value,
+      fillColor2: b.value,
       strokeWidth: e.strokeWidth || 2,
       filledColor: V.value
     }));
-    return () => j(Ae, v.value);
+    return () => A(_e, v.value);
   }
 });
-function se(e, r) {
+function ce(e, r) {
   var o = Object.keys(e);
   if (Object.getOwnPropertySymbols) {
     var l = Object.getOwnPropertySymbols(e);
@@ -445,12 +445,12 @@ function se(e, r) {
   }
   return o;
 }
-function ce(e) {
+function ue(e) {
   for (var r = 1; r < arguments.length; r++) {
     var o = arguments[r] != null ? arguments[r] : {};
-    r % 2 ? se(Object(o), !0).forEach(function(l) {
-      X(e, l, o[l]);
-    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(o)) : se(Object(o)).forEach(function(l) {
+    r % 2 ? ce(Object(o), !0).forEach(function(l) {
+      L(e, l, o[l]);
+    }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(o)) : ce(Object(o)).forEach(function(l) {
       Object.defineProperty(e, l, Object.getOwnPropertyDescriptor(o, l));
     });
   }
@@ -496,7 +496,7 @@ var $e = {
       }
     }]
   }]
-}, De = t.defineComponent({
+}, Ze = t.defineComponent({
   name: "MapIcon",
   props: {
     size: {
@@ -521,15 +521,15 @@ var $e = {
     } = r, l = t.computed(() => e.size), i = t.computed(() => e.strokeColor ? Array.isArray(e.strokeColor) ? e.strokeColor[0] : e.strokeColor : "currentColor"), m = t.computed(() => {
       var n;
       return e.strokeColor ? Array.isArray(e.strokeColor) ? (n = e.strokeColor[1]) !== null && n !== void 0 ? n : e.strokeColor[0] : e.strokeColor : "currentColor";
-    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), k = t.computed(() => {
+    }), p = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "transparent"), b = t.computed(() => {
       var n;
       return e.fillColor ? Array.isArray(e.fillColor) ? (n = e.fillColor[1]) !== null && n !== void 0 ? n : e.fillColor[0] : e.fillColor : "transparent";
     }), V = t.computed(() => e.fillColor ? Array.isArray(e.fillColor) ? e.fillColor[0] : e.fillColor : "currentColor"), {
-      className: S,
-      style: b
-    } = L(l), h = t.computed(() => ["t-icon", "t-icon-map", S.value]), y = t.computed(() => ce(ce({
+      className: O,
+      style: k
+    } = D(l), h = t.computed(() => ["t-icon", "t-icon-map", O.value]), y = t.computed(() => ue(ue({
       fill: "none"
-    }, b.value), o.style)), v = t.computed(() => ({
+    }, k.value), o.style)), v = t.computed(() => ({
       class: h.value,
       style: y.value,
       onClick: (n) => {
@@ -541,74 +541,72 @@ var $e = {
       strokeColor1: i.value,
       strokeColor2: m.value,
       fillColor1: p.value,
-      fillColor2: k.value,
+      fillColor2: b.value,
       strokeWidth: e.strokeWidth || 2,
       filledColor: V.value
     }));
-    return () => j($e, v.value);
+    return () => A($e, v.value);
   }
-}), U, ue;
-function Xe() {
-  return ue || (ue = 1, U = TDesign), U;
-}
-var N = Xe(), q, de;
+}), I, de;
 function Le() {
-  return de || (de = 1, q = mslxRequest), q;
+  return de || (de = 1, I = TDesign), I;
 }
-var Ze = Le();
-const me = /* @__PURE__ */ xe(Ze);
-function Ie() {
+var M = Le(), q, fe;
+function De() {
+  return fe || (fe = 1, q = mslxRequest), q;
+}
+var Xe = De();
+const We = /* @__PURE__ */ xe(Xe);
+function B() {
   if (typeof window < "u") {
     const e = window.MSLX_Stores;
-    if (e?.useUserStore)
+    if (e)
       try {
-        const r = e.useUserStore();
-        if (r?.baseUrl) return r.baseUrl;
+        return e.getUserStore?.() || e.useUserStore?.();
       } catch {
+        return null;
       }
   }
-  return localStorage.getItem("mslx-base-url") || (typeof window < "u" ? window.location.origin : "");
+  return null;
 }
-function fe() {
-  const e = localStorage.getItem("MSLX_MEDIA_TOKEN");
-  if (e) {
-    const o = localStorage.getItem("MSLX_MEDIA_TOKEN_EXP"), l = o ? parseInt(o, 10) : 0;
-    if (!l || Date.now() < l)
-      return `?media_token=${encodeURIComponent(e)}`;
-  }
+function Re() {
+  const e = B();
+  return e?.baseUrl ? e.baseUrl : localStorage.getItem("mslx-base-url") || (typeof window < "u" ? window.location.origin : "");
+}
+function ve() {
+  const e = B();
+  if (e?.getMediaTokenParam)
+    return e.getMediaTokenParam();
   const r = localStorage.getItem("mslx-web-token") || localStorage.getItem("token");
   return r ? `?x-user-token=${encodeURIComponent(r)}` : "";
 }
-async function We() {
-  const e = localStorage.getItem("MSLX_MEDIA_TOKEN"), r = localStorage.getItem("MSLX_MEDIA_TOKEN_EXP"), o = r ? parseInt(r, 10) : 0;
-  if (e && (!o || Date.now() < o))
-    return e;
-  try {
-    const l = await me.get({ url: "/api/auth/media-token" });
-    if (l?.token)
-      return localStorage.setItem("MSLX_MEDIA_TOKEN", l.token), l.expiresIn && localStorage.setItem("MSLX_MEDIA_TOKEN_EXP", (Date.now() + l.expiresIn * 1e3).toString()), l.token;
-  } catch (l) {
-    console.error("Failed to get media token", l);
-  }
+async function Te() {
+  const e = B();
+  if (e?.getMediaToken)
+    try {
+      return await e.getMediaToken();
+    } catch (r) {
+      console.error("Failed to get media token from userStore", r);
+    }
   return "";
 }
-async function Re(e) {
-  return await me.get({
+async function Ue(e) {
+  return await We.get({
     url: `/api/plugin/mslx-plugin-map-render/map/spawn/${e}`
   });
 }
-function ve(e, r, o, l = "") {
-  return `${Ie()}/api/plugin/mslx-plugin-map-render/map/${e}/${r}/${o}${l}`;
+function me(e, r, o, l = "") {
+  return `${Re()}/api/plugin/mslx-plugin-map-render/map/${e}/${r}/${o}${l}`;
 }
-const Te = /* @__PURE__ */ t.defineComponent({
+const Ie = /* @__PURE__ */ t.defineComponent({
   __name: "MapRenderDialog",
   props: {
     serverId: {}
   },
   setup(e, { expose: r }) {
     const o = e, l = t.ref(!1), i = t.ref(1), m = t.ref(0), p = t.ref(0);
-    let k = !1, V = 0, S = 0;
-    const b = t.ref(0), h = t.ref(0), y = t.ref([]), v = t.computed(() => {
+    let b = !1, V = 0, O = 0;
+    const k = t.ref(0), h = t.ref(0), y = t.ref([]), v = t.computed(() => {
       const a = i.value || 1, s = -m.value / a, d = -p.value / a;
       return {
         blockX: Math.round(s),
@@ -616,44 +614,44 @@ const Te = /* @__PURE__ */ t.defineComponent({
         regionX: Math.round(s / 512),
         regionZ: Math.round(d / 512)
       };
-    }), n = t.ref(!1), u = t.ref("loaded"), M = t.ref(!1), O = t.ref({
+    }), n = t.ref(!1), u = t.ref("loaded"), N = t.ref(!1), S = t.ref({
       startX: 0,
       startZ: 0,
       endX: 0,
       endZ: 0
     }), pe = () => {
-      O.value = {
+      S.value = {
         startX: v.value.regionX - 1,
         startZ: v.value.regionZ - 1,
         endX: v.value.regionX + 1,
         endZ: v.value.regionZ + 1
       }, n.value = !0;
-    }, Z = (a, s) => {
-      m.value = -a * i.value, p.value = -s * i.value, W();
-    }, I = () => {
-      const a = Number(b.value) || 0, s = Number(h.value) || 0;
-      Z(a, s);
-    }, B = async () => {
-      try {
-        const a = await Re(o.serverId);
-        b.value = a.x, h.value = a.z, Z(a.x, a.z);
-      } catch {
-        b.value = 0, h.value = 0, Z(0, 0);
-      }
+    }, X = (a, s) => {
+      m.value = -a * i.value, p.value = -s * i.value, R();
     }, W = () => {
+      const a = Number(k.value) || 0, s = Number(h.value) || 0;
+      X(a, s);
+    }, F = async () => {
+      try {
+        const a = await Ue(o.serverId);
+        k.value = a.x, h.value = a.z, X(a.x, a.z);
+      } catch {
+        k.value = 0, h.value = 0, X(0, 0);
+      }
+    }, R = () => {
       const a = v.value.regionX, s = v.value.regionZ, d = [];
       for (let f = -1; f <= 1; f++)
         for (let C = -1; C <= 1; C++) {
-          const w = a + f, c = s + C, _ = `${w}_${c}`;
-          if (!y.value.find((z) => z.key === _)) {
-            const z = f * f + C * C;
-            d.push({ x: w, z: c, key: _, distance: z });
+          const w = a + f, c = s + C, P = `${w}_${c}`;
+          if (!y.value.find((E) => E.key === P)) {
+            const E = f * f + C * C;
+            d.push({ x: w, z: c, key: P, distance: E });
           }
         }
       d.sort((f, C) => f.distance - C.distance);
-      const x = fe();
+      const x = ve();
       d.forEach((f) => {
-        const C = ve(o.serverId, f.x, f.z, x);
+        const C = me(o.serverId, f.x, f.z, x);
         y.value.push({
           x: f.x,
           z: f.z,
@@ -666,65 +664,65 @@ const Te = /* @__PURE__ */ t.defineComponent({
     t.watch(
       () => l.value,
       async (a) => {
-        a ? (await We(), i.value = 1, y.value = [], await B()) : y.value = [];
+        a ? (await Te(), i.value = 1, y.value = [], await F()) : y.value = [];
       }
     );
     const ge = (a) => {
-      k = !0, V = a.clientX - m.value, S = a.clientY - p.value;
+      b = !0, V = a.clientX - m.value, O = a.clientY - p.value;
     }, Ce = (a) => {
-      k && (m.value = a.clientX - V, p.value = a.clientY - S, W());
-    }, K = () => {
-      k = !1;
+      b && (m.value = a.clientX - V, p.value = a.clientY - O, R());
+    }, H = () => {
+      b = !1;
     }, ye = (a) => {
       a.preventDefault();
       const s = a.deltaY > 0 ? -0.1 : 0.1, d = Math.min(Math.max(0.2, i.value + s), 5), x = d / i.value;
-      m.value = m.value * x, p.value = p.value * x, i.value = d, W();
-    }, ke = async () => {
-      M.value = !0;
+      m.value = m.value * x, p.value = p.value * x, i.value = d, R();
+    }, be = async () => {
+      N.value = !0;
       try {
         let a = [];
         if (u.value === "loaded") {
           if (a = y.value.filter((g) => g.loaded), a.length === 0) {
-            N.MessagePlugin.warning("当前没有已加载的地图区块"), M.value = !1;
+            M.MessagePlugin.warning("当前没有已加载的地图区块"), N.value = !1;
             return;
           }
         } else {
-          const { startX: g, startZ: P, endX: E, endZ: F } = O.value, H = Math.min(g, E), Y = Math.max(g, E), G = Math.min(P, F), J = Math.max(P, F), Q = (Y - H + 1) * (J - G + 1);
-          if (Q > 100) {
-            N.MessagePlugin.warning(`选择的区块数量(${Q})过大，最大支持同时导出 100 个区块`), M.value = !1;
+          const { startX: g, startZ: j, endX: z, endZ: K } = S.value, Y = Math.min(g, z), G = Math.max(g, z), J = Math.min(j, K), Q = Math.max(j, K), ee = (G - Y + 1) * (Q - J + 1);
+          if (ee > 100) {
+            M.MessagePlugin.warning(`选择的区块数量(${ee})过大，最大支持同时导出 100 个区块`), N.value = !1;
             return;
           }
-          const he = fe();
-          for (let $ = H; $ <= Y; $++)
-            for (let D = G; D <= J; D++)
+          const he = ve();
+          for (let $ = Y; $ <= G; $++)
+            for (let Z = J; Z <= Q; Z++)
               a.push({
                 x: $,
-                z: D,
-                src: ve(o.serverId, $, D, he)
+                z: Z,
+                src: me(o.serverId, $, Z, he)
               });
         }
-        const s = N.MessagePlugin.loading("正在拼接地图图像，请稍候..."), d = Math.min(...a.map((g) => g.x)), x = Math.max(...a.map((g) => g.x)), f = Math.min(...a.map((g) => g.z)), C = Math.max(...a.map((g) => g.z)), w = document.createElement("canvas");
+        const s = M.MessagePlugin.loading("正在拼接地图图像，请稍候..."), d = Math.min(...a.map((g) => g.x)), x = Math.max(...a.map((g) => g.x)), f = Math.min(...a.map((g) => g.z)), C = Math.max(...a.map((g) => g.z)), w = document.createElement("canvas");
         w.width = (x - d + 1) * 512, w.height = (C - f + 1) * 512;
         const c = w.getContext("2d");
         if (!c) throw new Error("无法创建 Canvas 上下文");
         c.fillStyle = document.documentElement.classList.contains("dark") ? "#18181b" : "#fafafa", c.fillRect(0, 0, w.width, w.height);
-        const _ = a.map((g) => new Promise((P) => {
-          const E = new Image();
-          E.crossOrigin = "anonymous", E.onload = () => {
-            c.drawImage(E, (g.x - d) * 512, (g.z - f) * 512, 512, 512), P();
-          }, E.onerror = () => {
-            P();
-          }, E.src = g.src;
+        const P = a.map((g) => new Promise((j) => {
+          const z = new Image();
+          z.crossOrigin = "anonymous", z.onload = () => {
+            c.drawImage(z, (g.x - d) * 512, (g.z - f) * 512, 512, 512), j();
+          }, z.onerror = () => {
+            j();
+          }, z.src = g.src;
         }));
-        await Promise.all(_);
-        const z = w.toDataURL("image/png"), R = document.createElement("a");
-        R.href = z, R.download = `world_map_region_${d}_${f}_to_${x}_${C}.png`, R.click(), N.MessagePlugin.close(s), N.MessagePlugin.success("地图导出成功"), n.value = !1;
+        await Promise.all(P);
+        const E = w.toDataURL("image/png"), T = document.createElement("a");
+        T.href = E, T.download = `world_map_region_${d}_${f}_to_${x}_${C}.png`, T.click(), M.MessagePlugin.close(s), M.MessagePlugin.success("地图导出成功"), n.value = !1;
       } catch (a) {
-        console.error("地图导出失败:", a), N.MessagePlugin.error("地图导出失败，请检查网络或控制台日志");
+        console.error("地图导出失败:", a), M.MessagePlugin.error("地图导出失败，请检查网络或控制台日志");
       } finally {
-        M.value = !1;
+        N.value = !1;
       }
-    }, be = () => {
+    }, ke = () => {
       l.value = !1;
     };
     return r({
@@ -744,7 +742,7 @@ const Te = /* @__PURE__ */ t.defineComponent({
           width: "min(1000px, 95vw)",
           placement: "center",
           footer: !1,
-          onClose: be
+          onClose: ke
         }, {
           default: t.withCtx(() => [
             t.createElementVNode("div", {
@@ -752,8 +750,8 @@ const Te = /* @__PURE__ */ t.defineComponent({
               onWheel: ye,
               onMousedown: ge,
               onMousemove: Ce,
-              onMouseup: K,
-              onMouseleave: K
+              onMouseup: H,
+              onMouseleave: H
             }, [
               t.createElementVNode("div", {
                 class: "absolute top-1/2 left-1/2 origin-center transition-transform duration-[50ms] ease-linear",
@@ -767,7 +765,7 @@ const Te = /* @__PURE__ */ t.defineComponent({
                   t.createElementVNode("img", {
                     src: c.src,
                     class: t.normalizeClass(["w-full h-full pointer-events-none opacity-0 transition-opacity duration-500 ease-out [image-rendering:pixelated]", { "opacity-100": c.loaded }]),
-                    onLoad: (_) => c.loaded = !0,
+                    onLoad: (P) => c.loaded = !0,
                     alt: "tile",
                     draggable: "false"
                   }, null, 42, ["src", "onLoad"])
@@ -782,12 +780,12 @@ const Te = /* @__PURE__ */ t.defineComponent({
                 }, ["stop"]))
               }, [
                 t.createVNode(d, {
-                  modelValue: b.value,
-                  "onUpdate:modelValue": s[0] || (s[0] = (c) => b.value = c),
+                  modelValue: k.value,
+                  "onUpdate:modelValue": s[0] || (s[0] = (c) => k.value = c),
                   type: "number",
                   placeholder: "X 坐标",
                   class: "!w-[90px]",
-                  onEnter: I
+                  onEnter: W
                 }, null, 8, ["modelValue"]),
                 t.createVNode(d, {
                   modelValue: h.value,
@@ -795,15 +793,15 @@ const Te = /* @__PURE__ */ t.defineComponent({
                   type: "number",
                   placeholder: "Z 坐标",
                   class: "!w-[90px]",
-                  onEnter: I
+                  onEnter: W
                 }, null, 8, ["modelValue"]),
                 t.createVNode(x, {
                   theme: "primary",
                   class: "!rounded-lg shadow-sm",
-                  onClick: I
+                  onClick: W
                 }, {
                   icon: t.withCtx(() => [
-                    t.createVNode(t.unref(je))
+                    t.createVNode(t.unref(Ae))
                   ]),
                   default: t.withCtx(() => [
                     t.createTextVNode(" 定位 ")
@@ -813,11 +811,11 @@ const Te = /* @__PURE__ */ t.defineComponent({
                 t.createVNode(x, {
                   variant: "outline",
                   class: "!rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors",
-                  onClick: B,
+                  onClick: F,
                   title: "回到世界出生点"
                 }, {
                   icon: t.withCtx(() => [
-                    t.createVNode(t.unref(Pe))
+                    t.createVNode(t.unref(je))
                   ]),
                   _: 1
                 }),
@@ -829,7 +827,7 @@ const Te = /* @__PURE__ */ t.defineComponent({
                   title: "导出地图"
                 }, {
                   icon: t.withCtx(() => [
-                    t.createVNode(t.unref(_e))
+                    t.createVNode(t.unref(Pe))
                   ]),
                   default: t.withCtx(() => [
                     t.createTextVNode(" 导出 ")
@@ -865,10 +863,10 @@ const Te = /* @__PURE__ */ t.defineComponent({
           confirmBtn: {
             content: "开始导出",
             theme: "primary",
-            loading: M.value
+            loading: N.value
           },
-          cancelBtn: { content: "取消", disabled: M.value },
-          onConfirm: ke
+          cancelBtn: { content: "取消", disabled: N.value },
+          onConfirm: be
         }, {
           default: t.withCtx(() => [
             t.createElementVNode("div", { class: "flex flex-col gap-4 py-2" }, [
@@ -904,16 +902,16 @@ const Te = /* @__PURE__ */ t.defineComponent({
                 t.createElementVNode("div", { class: "flex items-center gap-2" }, [
                   t.createElementVNode("span", { class: "shrink-0 whitespace-nowrap text-sm text-[var(--td-text-color-secondary)]" }, "起始点："),
                   t.createVNode(d, {
-                    modelValue: O.value.startX,
-                    "onUpdate:modelValue": s[5] || (s[5] = (c) => O.value.startX = c),
+                    modelValue: S.value.startX,
+                    "onUpdate:modelValue": s[5] || (s[5] = (c) => S.value.startX = c),
                     modelModifiers: { number: !0 },
                     type: "number",
                     placeholder: "Region X"
                   }, null, 8, ["modelValue"]),
                   t.createElementVNode("span", { class: "text-zinc-400 shrink-0" }, ","),
                   t.createVNode(d, {
-                    modelValue: O.value.startZ,
-                    "onUpdate:modelValue": s[6] || (s[6] = (c) => O.value.startZ = c),
+                    modelValue: S.value.startZ,
+                    "onUpdate:modelValue": s[6] || (s[6] = (c) => S.value.startZ = c),
                     modelModifiers: { number: !0 },
                     type: "number",
                     placeholder: "Region Z"
@@ -922,16 +920,16 @@ const Te = /* @__PURE__ */ t.defineComponent({
                 t.createElementVNode("div", { class: "flex items-center gap-2" }, [
                   t.createElementVNode("span", { class: "shrink-0 whitespace-nowrap text-sm text-[var(--td-text-color-secondary)]" }, "结束点："),
                   t.createVNode(d, {
-                    modelValue: O.value.endX,
-                    "onUpdate:modelValue": s[7] || (s[7] = (c) => O.value.endX = c),
+                    modelValue: S.value.endX,
+                    "onUpdate:modelValue": s[7] || (s[7] = (c) => S.value.endX = c),
                     modelModifiers: { number: !0 },
                     type: "number",
                     placeholder: "Region X"
                   }, null, 8, ["modelValue"]),
                   t.createElementVNode("span", { class: "text-zinc-400 shrink-0" }, ","),
                   t.createVNode(d, {
-                    modelValue: O.value.endZ,
-                    "onUpdate:modelValue": s[8] || (s[8] = (c) => O.value.endZ = c),
+                    modelValue: S.value.endZ,
+                    "onUpdate:modelValue": s[8] || (s[8] = (c) => S.value.endZ = c),
                     modelModifiers: { number: !0 },
                     type: "number",
                     placeholder: "Region Z"
@@ -945,12 +943,12 @@ const Te = /* @__PURE__ */ t.defineComponent({
       ]);
     };
   }
-}), Ue = (e, r) => {
+}), qe = (e, r) => {
   const o = e.__vccOpts || e;
   for (const [l, i] of r)
     o[l] = i;
   return o;
-}, qe = /* @__PURE__ */ Ue(Te, [["__scopeId", "data-v-25b72e42"]]), Be = {
+}, Be = /* @__PURE__ */ qe(Ie, [["__scopeId", "data-v-25b72e42"]]), Fe = {
   name: "MSLX.Plugin.MapRender",
   version: "1.0.0",
   // 无独立整页路由，纯模态扩展
@@ -959,12 +957,12 @@ const Te = /* @__PURE__ */ t.defineComponent({
   extensions: [
     {
       slot: "instance-console-dropdown",
-      component: qe,
+      component: Be,
       label: "网页地图渲染器",
-      icon: De
+      icon: Ze
     }
   ]
 };
 export {
-  Be as pluginConfig
+  Fe as pluginConfig
 };

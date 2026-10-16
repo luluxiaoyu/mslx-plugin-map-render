@@ -1,51 +1,44 @@
 import request from 'mslx-request';
 
-export function getBaseUrl(): string {
+export function getUserStore() {
   if (typeof window !== 'undefined') {
     const stores = (window as any).MSLX_Stores;
-    if (stores?.useUserStore) {
+    if (stores) {
       try {
-        const userStore = stores.useUserStore();
-        if (userStore?.baseUrl) return userStore.baseUrl;
+        return stores.getUserStore?.() || stores.useUserStore?.();
       } catch {
-        // fallback
+        return null;
       }
     }
+  }
+  return null;
+}
+
+export function getBaseUrl(): string {
+  const userStore = getUserStore();
+  if (userStore?.baseUrl) {
+    return userStore.baseUrl;
   }
   return localStorage.getItem('mslx-base-url') || (typeof window !== 'undefined' ? window.location.origin : '');
 }
 
 export function getMediaTokenParam(): string {
-  const mediaToken = localStorage.getItem('MSLX_MEDIA_TOKEN');
-  if (mediaToken) {
-    const expStr = localStorage.getItem('MSLX_MEDIA_TOKEN_EXP');
-    const exp = expStr ? parseInt(expStr, 10) : 0;
-    if (!exp || Date.now() < exp) {
-      return `?media_token=${encodeURIComponent(mediaToken)}`;
-    }
+  const userStore = getUserStore();
+  if (userStore?.getMediaTokenParam) {
+    return userStore.getMediaTokenParam();
   }
   const token = localStorage.getItem('mslx-web-token') || localStorage.getItem('token');
   return token ? `?x-user-token=${encodeURIComponent(token)}` : '';
 }
 
 export async function ensureMediaToken(): Promise<string> {
-  const mediaToken = localStorage.getItem('MSLX_MEDIA_TOKEN');
-  const expStr = localStorage.getItem('MSLX_MEDIA_TOKEN_EXP');
-  const exp = expStr ? parseInt(expStr, 10) : 0;
-  if (mediaToken && (!exp || Date.now() < exp)) {
-    return mediaToken;
-  }
-  try {
-    const res: any = await request.get({ url: '/api/auth/media-token' });
-    if (res?.token) {
-      localStorage.setItem('MSLX_MEDIA_TOKEN', res.token);
-      if (res.expiresIn) {
-        localStorage.setItem('MSLX_MEDIA_TOKEN_EXP', (Date.now() + res.expiresIn * 1000).toString());
-      }
-      return res.token;
+  const userStore = getUserStore();
+  if (userStore?.getMediaToken) {
+    try {
+      return await userStore.getMediaToken();
+    } catch (e) {
+      console.error('Failed to get media token from userStore', e);
     }
-  } catch (e) {
-    console.error('Failed to get media token', e);
   }
   return '';
 }
