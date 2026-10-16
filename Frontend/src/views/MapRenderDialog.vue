@@ -72,9 +72,9 @@ const jumpToCoordinates = (targetX: number, targetZ: number) => {
 const currentDimension = ref<'overworld' | 'the_nether' | 'the_end'>('overworld');
 
 const dimensionOptions = [
-  { label: '🌍 主世界', value: 'overworld' },
-  { label: '🔥 下界', value: 'the_nether' },
-  { label: '🌌 末地', value: 'the_end' },
+  { label: '主世界', value: 'overworld' },
+  { label: '下界', value: 'the_nether' },
+  { label: '末地', value: 'the_end' },
 ];
 
 const currentDimensionLabel = computed(() => {
@@ -328,9 +328,13 @@ defineExpose({
           </div>
         </div>
 
+        <!-- 中心十字定位标记（双轴明确渲染，杜绝伪元素兼容问题） -->
         <div
-          class="absolute top-1/2 left-1/2 w-3.5 h-3.5 -mt-[7px] -ml-[7px] pointer-events-none z-10 before:absolute before:left-[6px] before:top-0 before:w-[2px] before:h-[14px] before:bg-red-500/80 before:shadow-[0_0_2px_rgba(0,0,0,0.5)] after:absolute after:left-0 after:top-[6px] after:w-[14px] after:h-[2px] after:bg-red-500/80 after:shadow-[0_0_2px_rgba(0,0,0,0.5)]"
-        ></div>
+          class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10 w-4 h-4 flex items-center justify-center"
+        >
+          <div class="absolute w-[2px] h-3.5 bg-red-500 shadow-[0_0_2px_rgba(0,0,0,0.6)]"></div>
+          <div class="absolute w-3.5 h-[2px] bg-red-500 shadow-[0_0_2px_rgba(0,0,0,0.6)]"></div>
+        </div>
 
         <!-- 顶部定位与工具栏：使用安全语义变量，不使用斜杠变量透明度 -->
         <div
@@ -404,7 +408,7 @@ defineExpose({
           <div
             class="pt-2.5 border-t border-dashed border-zinc-200/80 dark:border-zinc-700/80 text-right text-[11px] text-[var(--td-text-color-secondary)] font-sans tracking-widest"
           >
-            🖱️ 滚轮缩放 | 按住拖拽
+            滚轮缩放 | 按住拖拽
           </div>
         </div>
       </div>
