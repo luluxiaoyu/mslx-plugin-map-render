@@ -308,25 +308,31 @@ public class MapRenderService
                 var heightmaps = level.Get<NbtCompound>("Heightmaps") ?? level.Get<NbtCompound>("heightmaps");
                 if (heightmaps == null) continue;
 
+                var worldSurfData = (heightmaps.Get<NbtLongArray>("WORLD_SURFACE") ?? heightmaps.Get<NbtLongArray>("world_surface"))?.Value;
                 var motionData = (heightmaps.Get<NbtLongArray>("MOTION_BLOCKING") ?? heightmaps.Get<NbtLongArray>("motion_blocking"))?.Value;
-                var floorData = (heightmaps.Get<NbtLongArray>("OCEAN_FLOOR") ?? heightmaps.Get<NbtLongArray>("ocean_floor"))?.Value;
-                if (motionData == null || floorData == null) continue;
+                var surfaceData = worldSurfData ?? motionData;
+                if (surfaceData == null) continue;
 
-                int[] topHeights = UnpackHeightmap(motionData);
-                int[] floorHeights = UnpackHeightmap(floorData);
+                int[] topHeights = UnpackHeightmap(surfaceData);
+
+                var floorData = (heightmaps.Get<NbtLongArray>("OCEAN_FLOOR") ?? heightmaps.Get<NbtLongArray>("ocean_floor"))?.Value;
+                int[]? floorHeights = floorData != null ? UnpackHeightmap(floorData) : null;
 
                 var sections = level.Get<NbtList>("sections") ?? level.Get<NbtList>("Sections");
                 if (sections == null || sections.Count == 0) continue;
 
-                // 计算当前版本的 Y 轴基础偏移 (1.18+ 为 -64..319, 旧版为 0..256)
-                var yPosTag = level.Get<NbtInt>("yPos") ?? chunkTag.Get<NbtInt>("yPos");
-                int minSectionY = yPosTag?.Value ?? sections.OfType<NbtCompound>()
-                    .Select(s => GetSectionY(s) ?? 0)
-                    .DefaultIfEmpty(0)
-                    .Min();
+                // 计算当前版本的 Y 轴基础偏移 (1.18+ / 26.x 为 -64..319, 旧版为 0..256)
+                int dataVersion = chunkTag.Get<NbtInt>("DataVersion")?.Value ?? level.Get<NbtInt>("DataVersion")?.Value ?? 0;
+                bool is118Plus = dataVersion >= 2860;
+                if (!is118Plus)
+                {
+                    var yPos = level.Get<NbtInt>("yPos")?.Value ?? chunkTag.Get<NbtInt>("yPos")?.Value;
+                    if (yPos != null && yPos.Value < 0) is118Plus = true;
+                    else if (sections.OfType<NbtCompound>().Any(s => (GetSectionY(s) ?? 0) < 0) || sections.Count > 16) is118Plus = true;
+                }
 
-                int minY = minSectionY < 0 ? minSectionY * 16 : 0;
-                int heightOffset = -minY + 1;
+                int minY = is118Plus ? -64 : 0;
+                int heightOffset = -minY + 1; // 1.18+ 为 65，1.17 及以下为 1
 
                 for (int x = 0; x < 16; x++)
                 {
@@ -334,7 +340,7 @@ public class MapRenderService
                     {
                         int idx = z * 16 + x;
                         int topY = topHeights[idx] - heightOffset;
-                        int floorY = floorHeights[idx] - heightOffset;
+                        int floorY = floorHeights != null ? (floorHeights[idx] - heightOffset) : (topY - 1);
 
                         if (topHeights[idx] <= 0 || topY < minY) continue;
 
@@ -494,17 +500,13 @@ public class MapRenderService
                 var sections = level.Get<NbtList>("sections") ?? level.Get<NbtList>("Sections");
                 if (sections == null || sections.Count == 0) continue;
 
+                var worldSurfData = (heightmaps?.Get<NbtLongArray>("WORLD_SURFACE") ?? heightmaps?.Get<NbtLongArray>("world_surface"))?.Value;
                 var motionData = (heightmaps?.Get<NbtLongArray>("MOTION_BLOCKING") ?? heightmaps?.Get<NbtLongArray>("motion_blocking"))?.Value;
-                int[]? topHeights = motionData != null ? UnpackHeightmap(motionData) : null;
+                var surfaceData = worldSurfData ?? motionData;
+                int[]? topHeights = surfaceData != null ? UnpackHeightmap(surfaceData) : null;
 
-                var yPosTag = level.Get<NbtInt>("yPos") ?? chunkTag.Get<NbtInt>("yPos");
-                int minSectionY = yPosTag?.Value ?? sections.OfType<NbtCompound>()
-                    .Select(s => GetSectionY(s) ?? 0)
-                    .DefaultIfEmpty(0)
-                    .Min();
-
-                int minY = minSectionY < 0 ? minSectionY * 16 : 0;
-                int heightOffset = -minY + 1;
+                int minY = 0;
+                int heightOffset = 1;
 
                 for (int x = 0; x < 16; x++)
                 {
@@ -645,13 +647,22 @@ public class MapRenderService
             var secY = GetSectionY(sec);
             if (secY == null || secY.Value != sectionY) continue;
 
+            NbtList? palette = null;
+            long[]? data = null;
+
             var blockStates = sec.Get<NbtCompound>("block_states") ?? sec.Get<NbtCompound>("BlockStates");
-            if (blockStates == null) return "minecraft:air";
+            if (blockStates != null)
+            {
+                palette = blockStates.Get<NbtList>("palette") ?? blockStates.Get<NbtList>("Palette");
+                data = (blockStates.Get<NbtLongArray>("data") ?? blockStates.Get<NbtLongArray>("Data"))?.Value;
+            }
+            else
+            {
+                palette = sec.Get<NbtList>("Palette") ?? sec.Get<NbtList>("palette");
+                data = (sec.Get<NbtLongArray>("BlockStates") ?? sec.Get<NbtLongArray>("block_states") ?? sec.Get<NbtLongArray>("data"))?.Value;
+            }
 
-            var palette = blockStates.Get<NbtList>("palette") ?? blockStates.Get<NbtList>("Palette");
             if (palette == null || palette.Count == 0) return "minecraft:air";
-
-            var data = (blockStates.Get<NbtLongArray>("data") ?? blockStates.Get<NbtLongArray>("Data"))?.Value;
 
             if (data == null || data.Length == 0)
             {
@@ -663,10 +674,24 @@ public class MapRenderService
 
             int paletteSize = palette.Count;
             int bitsPerEntry = Math.Max(4, (int)Math.Ceiling(Math.Log2(paletteSize)));
-            int entriesPerLong = 64 / bitsPerEntry;
 
-            if (entriesPerLong > 0)
+            // 根据 data.Length 校准 bitsPerEntry，避免调色板变更但数据数组未收缩导致的错位
+            for (int b = 4; b <= 12; b++)
             {
+                int expectedLongs = (int)Math.Ceiling(4096.0 / (64 / b));
+                if (data.Length == expectedLongs)
+                {
+                    bitsPerEntry = b;
+                    break;
+                }
+            }
+
+            int entriesPerLong = 64 / bitsPerEntry;
+            int paletteIndex;
+
+            if (entriesPerLong > 0 && Math.Ceiling(4096.0 / entriesPerLong) <= data.Length)
+            {
+                // 现代 1.16+ 对齐打包 (不跨 64 位 long 边界)
                 int longIndex = blockIndex / entriesPerLong;
                 int startBit = (blockIndex % entriesPerLong) * bitsPerEntry;
 
@@ -674,12 +699,30 @@ public class MapRenderService
 
                 long val = data[longIndex];
                 long mask = (1L << bitsPerEntry) - 1;
-                int paletteIndex = (int)((val >> startBit) & mask);
-
-                if (paletteIndex >= paletteSize) return "minecraft:air";
-
-                return ExtractBlockName(palette[paletteIndex]);
+                paletteIndex = (int)((val >> startBit) & mask);
             }
+            else
+            {
+                // 旧版 1.15 及以前连续跨 long 打包
+                int startBit = blockIndex * bitsPerEntry;
+                int longIndex = startBit / 64;
+                int bitOffset = startBit % 64;
+                if (longIndex >= data.Length) return "minecraft:air";
+
+                ulong low = (ulong)data[longIndex] >> bitOffset;
+                ulong val = low;
+                if (bitOffset + bitsPerEntry > 64 && longIndex + 1 < data.Length)
+                {
+                    ulong high = (ulong)data[longIndex + 1] << (64 - bitOffset);
+                    val = low | high;
+                }
+                long mask = (1L << bitsPerEntry) - 1;
+                paletteIndex = (int)(val & (ulong)mask);
+            }
+
+            if (paletteIndex >= paletteSize) return "minecraft:air";
+
+            return ExtractBlockName(palette[paletteIndex]);
         }
         return "minecraft:air";
     }
