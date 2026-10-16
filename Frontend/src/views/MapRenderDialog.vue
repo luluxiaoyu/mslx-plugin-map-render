@@ -69,6 +69,25 @@ const jumpToCoordinates = (targetX: number, targetZ: number) => {
   updateVisibleRegions();
 };
 
+const currentDimension = ref<'overworld' | 'the_nether' | 'the_end'>('overworld');
+
+const dimensionOptions = [
+  { label: '🌍 主世界', value: 'overworld' },
+  { label: '🔥 下界', value: 'the_nether' },
+  { label: '🌌 末地', value: 'the_end' },
+];
+
+const currentDimensionLabel = computed(() => {
+  const opt = dimensionOptions.find((d) => d.value === currentDimension.value);
+  return opt ? opt.label : '主世界';
+});
+
+const handleDimensionChange = async () => {
+  loadedRegions.value = [];
+  scale.value = 1;
+  await jumpToSpawn();
+};
+
 const handleSearchJump = () => {
   const x = Number(inputX.value) || 0;
   const z = Number(inputZ.value) || 0;
@@ -77,7 +96,7 @@ const handleSearchJump = () => {
 
 const jumpToSpawn = async () => {
   try {
-    const spawn = await getWorldSpawn(props.serverId);
+    const spawn = await getWorldSpawn(props.serverId, currentDimension.value);
     inputX.value = spawn.x;
     inputZ.value = spawn.z;
     jumpToCoordinates(spawn.x, spawn.z);
@@ -99,7 +118,7 @@ const updateVisibleRegions = () => {
       const rz = cz + dz;
       const key = `${rx}_${rz}`;
 
-      if (!loadedRegions.value.find((r) => r.key === key)) {
+      if (!loadedRegions.value.find((r) => r.key === `${currentDimension.value}_${key}`)) {
         const distance = dx * dx + dz * dz;
         missingTiles.push({ x: rx, z: rz, key, distance });
       }
@@ -110,12 +129,12 @@ const updateVisibleRegions = () => {
 
   const tokenParam = getMediaTokenParam();
   missingTiles.forEach((item) => {
-    const src = getTileUrl(props.serverId, item.x, item.z, tokenParam);
+    const src = getTileUrl(props.serverId, item.x, item.z, tokenParam, currentDimension.value);
 
     loadedRegions.value.push({
       x: item.x,
       z: item.z,
-      key: item.key,
+      key: `${currentDimension.value}_${item.key}`,
       src,
       loaded: false,
     });
@@ -198,7 +217,7 @@ const handleExportMap = async () => {
           tilesToExport.push({
             x: rx,
             z: rz,
-            src: getTileUrl(props.serverId, rx, rz, tokenParam),
+            src: getTileUrl(props.serverId, rx, rz, tokenParam, currentDimension.value),
           });
         }
       }
@@ -241,7 +260,7 @@ const handleExportMap = async () => {
     const dataUrl = canvas.toDataURL('image/png');
     const a = document.createElement('a');
     a.href = dataUrl;
-    a.download = `world_map_region_${minX}_${minZ}_to_${maxX}_${maxZ}.png`;
+    a.download = `${currentDimension.value}_map_region_${minX}_${minZ}_to_${maxX}_${maxZ}.png`;
     a.click();
 
     MessagePlugin.close(loadMessage);
@@ -319,6 +338,15 @@ defineExpose({
           @mousedown.stop
           @wheel.stop
         >
+          <t-select
+            v-model="currentDimension"
+            :options="dimensionOptions"
+            class="!w-[115px]"
+            :popup-props="{ zIndex: 9999 }"
+            @change="handleDimensionChange"
+          />
+          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-0.5"></div>
+
           <t-input v-model="inputX" type="number" placeholder="X 坐标" class="!w-[90px]" @enter="handleSearchJump" />
           <t-input v-model="inputZ" type="number" placeholder="Z 坐标" class="!w-[90px]" @enter="handleSearchJump" />
 
@@ -330,11 +358,11 @@ defineExpose({
             variant="outline"
             class="!rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
             @click="jumpToSpawn"
-            title="回到世界出生点"
+            title="回到出生点/中心点"
           >
             <template #icon><home-icon /></template>
           </t-button>
-          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-1"></div>
+          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-0.5"></div>
           <t-button
             variant="outline"
             class="!rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
@@ -349,6 +377,11 @@ defineExpose({
         <div
           class="absolute bottom-4 right-4 p-4 flex flex-col font-mono text-sm bg-[var(--td-bg-color-container)] opacity-95 backdrop-blur-md rounded-xl border border-[var(--td-component-border)] shadow-md z-20 pointer-events-none"
         >
+          <div class="flex justify-between items-center gap-6 mb-2">
+            <span class="text-xs text-[var(--td-text-color-secondary)]">当前维度:</span>
+            <span class="font-bold text-[var(--color-primary)]">{{ currentDimensionLabel }}</span>
+          </div>
+
           <div class="flex justify-between items-center gap-6 mb-2">
             <span class="text-xs text-[var(--td-text-color-secondary)]">方块坐标 (Block):</span>
             <span class="font-bold text-[var(--color-primary)]"
