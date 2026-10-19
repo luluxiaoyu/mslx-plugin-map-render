@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { LocationIcon, HomeIcon, DownloadIcon } from 'tdesign-icons-vue-next';
+import { LocationIcon, HomeIcon, DownloadIcon, LinkIcon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { getWorldSpawn, getTileUrl, ensureMediaToken, getMediaTokenParam } from '../api/map';
 
@@ -274,6 +274,10 @@ const handleExportMap = async () => {
   }
 };
 
+const openPublicMap = () => {
+  window.open(`/mslx-plugin-map-render/public?serverId=${props.serverId}`, '_blank');
+};
+
 const handleClose = () => {
   visible.value = false;
 };
@@ -374,6 +378,15 @@ defineExpose({
             title="导出地图"
           >
             <template #icon><download-icon /></template> 导出
+          </t-button>
+          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-0.5"></div>
+          <t-button
+            variant="outline"
+            class="!rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
+            @click="openPublicMap"
+            title="在新标签页中打开全屏公开地图"
+          >
+            <template #icon><link-icon /></template> 全屏页面
           </t-button>
         </div>
 

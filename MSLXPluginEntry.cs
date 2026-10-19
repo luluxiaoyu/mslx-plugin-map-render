@@ -1,9 +1,5 @@
-using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.Extensions.DependencyInjection;
 using MSLX.SDK;
-using MSLX.SDK.Interfaces;
 
 using MSLX.Plugin.MapRender.Services;
 
@@ -17,7 +13,7 @@ public class MSLXPluginEntry : IPlugin
     public string Id => "mslx-plugin-map-render"; 
     public string Name => "网页地图渲染器";
     public string Description => "基于 Minecraft 存档 Region 文件的 2D 像素地图渲染与切片拼接导出插件";
-    public string Version => "1.0.0.4";
+    public string Version => "1.0.1";
     public string Icon => "yg.gif";
     public bool HasPublicPages => true;
     public string MinSDKVersion => "1.7.3";

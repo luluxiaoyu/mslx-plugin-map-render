@@ -1,4 +1,5 @@
 using fNbt;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MSLX.Plugin.MapRender.Services;
 using MSLX.SDK;
@@ -170,12 +171,101 @@ public class MapRenderController : ControllerBase
         return Path.Combine(worldPath, "region");
     }
 
+    private bool IsPublicAccessEnabled()
+    {
+        var val = SDK.MSLX.Config.Main.ReadConfigKey("Plugins:PublicAccess:mslx-plugin-map-render");
+        if (val != null && bool.TryParse(val.ToString(), out var parsed)) return parsed;
+        return false;
+    }
+
+    private string? GetUserIdFromRequest()
+    {
+        var uid = User?.FindFirst("UserId")?.Value;
+        if (!string.IsNullOrEmpty(uid)) return uid;
+
+        string? token = Request.Headers["x-user-token"].FirstOrDefault()
+                     ?? Request.Query["x-user-token"].FirstOrDefault()
+                     ?? Request.Query["token"].FirstOrDefault()
+                     ?? Request.Query["media_token"].FirstOrDefault();
+
+        if (string.IsNullOrEmpty(token)) return null;
+
+        try
+        {
+            var parts = token.Split('.');
+            if (parts.Length >= 2)
+            {
+                string payload = parts[1];
+                payload = payload.Replace('-', '+').Replace('_', '/');
+                switch (payload.Length % 4)
+                {
+                    case 2: payload += "=="; break;
+                    case 3: payload += "="; break;
+                }
+                var bytes = Convert.FromBase64String(payload);
+                var json = System.Text.Encoding.UTF8.GetString(bytes);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("UserId", out var prop))
+                {
+                    return prop.GetString();
+                }
+            }
+        }
+        catch
+        {
+            // ignore
+        }
+        return null;
+    }
+
+    private bool CheckAccess(uint id)
+    {
+        // 1. 若管理员在宿主面板开启了“公开页面访问”，直接允许免登录访问
+        if (IsPublicAccessEnabled()) return true;
+
+        // 2. 否则校验登录用户资源权限
+        var userId = GetUserIdFromRequest();
+        if (!string.IsNullOrEmpty(userId) && SDK.MSLX.Config.Users.HasResourcePermission(userId, "server", (int)id))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    [HttpGet("public/servers")]
+    [AllowAnonymous]
+    public IActionResult GetPublicServers()
+    {
+        if (!IsPublicAccessEnabled())
+        {
+            return StatusCode(403, new ApiResponse<object>
+            {
+                Code = 403,
+                Message = "管理员未开启本插件的公开访问权限"
+            });
+        }
+
+        var serverList = SDK.MSLX.Config.Servers.GetServerList();
+        var data = serverList.Select(s => new
+        {
+            id = s.ID,
+            name = s.Name
+        }).ToList();
+
+        return Ok(new ApiResponse<object>
+        {
+            Code = 200,
+            Data = data
+        });
+    }
+
     [HttpGet("spawn/{id}")]
+    [AllowAnonymous]
     [AllowTokenScope(TokenScopes.Media)]
     public IActionResult GetWorldSpawn(uint id, [FromQuery] string dimension = "overworld")
     {
-        var userId = User?.FindFirst("UserId")?.Value ?? "";
-        if (!SDK.MSLX.Config.Users.HasResourcePermission(userId, "server", (int)id))
+        if (!CheckAccess(id))
             return NotFound(new ApiResponse<object> { Code = 404, Message = "未找到指定实例或无权访问" });
 
         try
@@ -210,11 +300,11 @@ public class MapRenderController : ControllerBase
     }
 
     [HttpGet("{id}/{regionX}/{regionZ}")]
+    [AllowAnonymous]
     [AllowTokenScope(TokenScopes.Media)]
     public IActionResult GetRegionMap(uint id, int regionX = 0, int regionZ = 0, [FromQuery] string dimension = "overworld")
     {
-        var userId = User?.FindFirst("UserId")?.Value ?? "";
-        if (!SDK.MSLX.Config.Users.HasResourcePermission(userId, "server", (int)id))
+        if (!CheckAccess(id))
             return NotFound(new ApiResponse<object> { Code = 404, Message = "未找到指定实例或无权访问" });
 
         try

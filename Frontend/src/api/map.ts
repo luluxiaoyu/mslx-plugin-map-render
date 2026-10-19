@@ -62,3 +62,15 @@ export function getTileUrl(serverId: number, regionX: number, regionZ: number, t
   }
   return params.length > 0 ? `${url}?${params.join('&')}` : url;
 }
+
+export interface PublicServerItem {
+  id: number;
+  name: string;
+}
+
+export async function getPublicServers(): Promise<PublicServerItem[]> {
+  return await request.get({
+    url: '/api/plugin/mslx-plugin-map-render/map/public/servers',
+  });
+}
+
