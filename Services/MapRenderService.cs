@@ -630,10 +630,12 @@ public class MapRenderService
         if (tag is NbtString strTag) return strTag.Value;
         if (tag is NbtCompound cmpTag)
         {
-            return cmpTag.Get<NbtString>("Name")?.Value
-                ?? cmpTag.Get<NbtString>("id")?.Value
-                ?? cmpTag.Get<NbtString>("name")?.Value
-                ?? "minecraft:air";
+            var str = cmpTag.Get<NbtString>("Name")
+                ?? cmpTag.Get<NbtString>("id")
+                ?? cmpTag.Get<NbtString>("name")
+                ?? cmpTag.Get<NbtString>("")
+                ?? cmpTag.OfType<NbtString>().FirstOrDefault();
+            return str?.Value ?? "minecraft:air";
         }
         return "minecraft:air";
     }
@@ -662,7 +664,7 @@ public class MapRenderService
                 data = (sec.Get<NbtLongArray>("BlockStates") ?? sec.Get<NbtLongArray>("block_states") ?? sec.Get<NbtLongArray>("data"))?.Value;
             }
 
-            if (palette == null || palette.Count == 0) return "minecraft:air";
+            if (palette == null || palette.Count == 0) continue;
 
             if (data == null || data.Length == 0)
             {
