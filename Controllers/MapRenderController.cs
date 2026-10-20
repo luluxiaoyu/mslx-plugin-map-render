@@ -1,6 +1,7 @@
 using fNbt;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MSLX.Plugin.MapRender.Models;
 using MSLX.Plugin.MapRender.Services;
 using MSLX.SDK;
 using MSLX.SDK.Attributes;
@@ -13,10 +14,17 @@ namespace MSLX.Plugin.MapRender.Controllers;
 public class MapRenderController : ControllerBase
 {
     private readonly MapRenderService _renderService;
+    private readonly InstanceMapConfigService _configService;
+    private readonly MapAuthService _authService;
 
-    public MapRenderController(MapRenderService? renderService = null)
+    public MapRenderController(
+        MapRenderService? renderService = null,
+        InstanceMapConfigService? configService = null,
+        MapAuthService? authService = null)
     {
         _renderService = renderService ?? MapRenderService.Instance;
+        _configService = configService ?? InstanceMapConfigService.Instance;
+        _authService = authService ?? MapAuthService.Instance;
     }
 
     private static string NormalizeRelativePath(string? input, string defaultPath, string errorMessage)
@@ -218,19 +226,201 @@ public class MapRenderController : ControllerBase
         return null;
     }
 
-    private bool CheckAccess(uint id)
+    private string? GetMapTokenFromRequest()
     {
-        // 1. 若管理员在宿主面板开启了“公开页面访问”，直接允许免登录访问
-        if (IsPublicAccessEnabled()) return true;
+        return Request.Headers["X-Map-Token"].FirstOrDefault()
+            ?? Request.Headers["x-map-token"].FirstOrDefault()
+            ?? Request.Query["map_token"].FirstOrDefault()
+            ?? Request.Query["token"].FirstOrDefault();
+    }
 
-        // 2. 否则校验登录用户资源权限
+    private (bool Allowed, int StatusCode, string Message) CheckAccess(uint id, string? dimension = null, string? mapToken = null)
+    {
+        // 1. 若当前用户已登录且拥有该实例权限，直接放行（服主/管理员）
         var userId = GetUserIdFromRequest();
         if (!string.IsNullOrEmpty(userId) && SDK.MSLX.Config.Users.HasResourcePermission(userId, "server", (int)id))
         {
-            return true;
+            return (true, 200, "OK");
         }
 
-        return false;
+        // 2. 外部访客检查宿主公开开关
+        if (!IsPublicAccessEnabled())
+        {
+            return (false, 403, "管理员未开启本插件的公开访问权限");
+        }
+
+        var config = _configService.GetConfig(id);
+        if (!config.Enabled)
+        {
+            return (false, 403, "该实例未开启公开地图访问");
+        }
+
+        if (!string.IsNullOrWhiteSpace(dimension))
+        {
+            var dimName = dimension.Contains(':') ? dimension.Split(':')[1] : dimension;
+            if (!config.AllowedDimensions.Any(d => d.Equals(dimName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return (false, 403, "该维度未对外开放访问");
+            }
+        }
+
+        if (config.PasswordEnabled)
+        {
+            if (string.IsNullOrWhiteSpace(mapToken) || !_authService.ValidateMapToken(mapToken, id))
+            {
+                return (false, 401, "该实例地图受密码保护，需要有效的访问凭证");
+            }
+        }
+
+        return (true, 200, "OK");
+    }
+
+    [HttpGet("instance-config/{serverId}")]
+    public IActionResult GetInstanceConfig(uint serverId)
+    {
+        var userId = GetUserIdFromRequest();
+        if (string.IsNullOrEmpty(userId) || !SDK.MSLX.Config.Users.HasResourcePermission(userId, "server", (int)serverId))
+        {
+            return StatusCode(403, new ApiResponse<object> { Code = 403, Message = "没有管理该实例的权限" });
+        }
+
+        var dto = _configService.GetConfigDto(serverId);
+        return Ok(new ApiResponse<InstanceMapConfigDto> { Code = 200, Data = dto });
+    }
+
+    [HttpPost("instance-config/{serverId}")]
+    public IActionResult SaveInstanceConfig(uint serverId, [FromBody] InstanceMapConfigDto dto)
+    {
+        var userId = GetUserIdFromRequest();
+        if (string.IsNullOrEmpty(userId) || !SDK.MSLX.Config.Users.HasResourcePermission(userId, "server", (int)serverId))
+        {
+            return StatusCode(403, new ApiResponse<object> { Code = 403, Message = "没有管理该实例的权限" });
+        }
+
+        try
+        {
+            _configService.SaveConfig(serverId, dto);
+            return Ok(new ApiResponse<object> { Code = 200, Message = "地图设置已保存" });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Code = 400, Message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new ApiResponse<object> { Code = 500, Message = ex.Message });
+        }
+    }
+
+    [HttpGet("public/info")]
+    [AllowAnonymous]
+    public IActionResult GetPublicMapInfo([FromQuery] string? slug = null, [FromQuery] uint? serverId = null)
+    {
+        if (!IsPublicAccessEnabled())
+        {
+            return StatusCode(403, new ApiResponse<object>
+            {
+                Code = 403,
+                Message = "管理员未开启本插件的公开访问权限"
+            });
+        }
+
+        InstanceMapConfig? config = null;
+        if (serverId.HasValue)
+        {
+            config = _configService.GetConfig(serverId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(slug))
+        {
+            config = _configService.GetConfigByIdOrSlug(slug);
+        }
+
+        if (config == null || !config.Enabled)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Code = 404,
+                Message = "该实例地图不存在或尚未开启公开访问"
+            });
+        }
+
+        var server = SDK.MSLX.Config.Servers.GetServer(config.ServerId);
+        var mapToken = GetMapTokenFromRequest();
+        var (allowed, _, _) = CheckAccess(config.ServerId, null, mapToken);
+
+        var data = new PublicMapInfoDto
+        {
+            ServerId = config.ServerId,
+            Name = server?.Name ?? $"实例 #{config.ServerId}",
+            Title = string.IsNullOrWhiteSpace(config.Title) ? (server?.Name ?? $"实例 #{config.ServerId}") : config.Title,
+            Slug = config.Slug,
+            AllowedDimensions = config.AllowedDimensions,
+            RequirePassword = config.PasswordEnabled,
+            HasAccess = allowed
+        };
+
+        return Ok(new ApiResponse<PublicMapInfoDto>
+        {
+            Code = 200,
+            Data = data
+        });
+    }
+
+    [HttpPost("public/auth")]
+    [AllowAnonymous]
+    public IActionResult AuthPublicMap([FromBody] PublicAuthRequest request)
+    {
+        if (!IsPublicAccessEnabled())
+        {
+            return StatusCode(403, new ApiResponse<object>
+            {
+                Code = 403,
+                Message = "管理员未开启本插件的公开访问权限"
+            });
+        }
+
+        InstanceMapConfig? config = null;
+        if (request.ServerId.HasValue)
+        {
+            config = _configService.GetConfig(request.ServerId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Slug))
+        {
+            config = _configService.GetConfigByIdOrSlug(request.Slug);
+        }
+
+        if (config == null || !config.Enabled)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Code = 404,
+                Message = "指定实例不存在或未开启公开访问"
+            });
+        }
+
+        if (config.PasswordEnabled)
+        {
+            if (!MapAuthService.VerifyPasswordHash(request.PasswordHash, config.PasswordHash))
+            {
+                return StatusCode(401, new ApiResponse<object>
+                {
+                    Code = 401,
+                    Message = "访问密码错误，请重新输入"
+                });
+            }
+        }
+
+        var token = _authService.GenerateMapToken(config.ServerId, TimeSpan.FromDays(7));
+        return Ok(new ApiResponse<object>
+        {
+            Code = 200,
+            Data = new
+            {
+                serverId = config.ServerId,
+                mapToken = token,
+                expiresIn = (int)TimeSpan.FromDays(7).TotalSeconds
+            }
+        });
     }
 
     [HttpGet("public/servers")]
@@ -246,11 +436,16 @@ public class MapRenderController : ControllerBase
             });
         }
 
-        var serverList = SDK.MSLX.Config.Servers.GetServerList();
-        var data = serverList.Select(s => new
+        var publicConfigs = _configService.GetAllPublicConfigs();
+        var data = publicConfigs.Select(c =>
         {
-            id = s.ID,
-            name = s.Name
+            var server = SDK.MSLX.Config.Servers.GetServer(c.ServerId);
+            return new
+            {
+                id = c.ServerId,
+                name = string.IsNullOrWhiteSpace(c.Title) ? (server?.Name ?? $"实例 #{c.ServerId}") : c.Title,
+                slug = c.Slug
+            };
         }).ToList();
 
         return Ok(new ApiResponse<object>
@@ -265,8 +460,10 @@ public class MapRenderController : ControllerBase
     [AllowTokenScope(TokenScopes.Media)]
     public IActionResult GetWorldSpawn(uint id, [FromQuery] string dimension = "overworld")
     {
-        if (!CheckAccess(id))
-            return NotFound(new ApiResponse<object> { Code = 404, Message = "未找到指定实例或无权访问" });
+        var mapToken = GetMapTokenFromRequest();
+        var (allowed, statusCode, message) = CheckAccess(id, dimension, mapToken);
+        if (!allowed)
+            return StatusCode(statusCode, new ApiResponse<object> { Code = statusCode, Message = message });
 
         try
         {
@@ -304,8 +501,10 @@ public class MapRenderController : ControllerBase
     [AllowTokenScope(TokenScopes.Media)]
     public IActionResult GetRegionMap(uint id, int regionX = 0, int regionZ = 0, [FromQuery] string dimension = "overworld")
     {
-        if (!CheckAccess(id))
-            return NotFound(new ApiResponse<object> { Code = 404, Message = "未找到指定实例或无权访问" });
+        var mapToken = GetMapTokenFromRequest();
+        var (allowed, statusCode, message) = CheckAccess(id, dimension, mapToken);
+        if (!allowed)
+            return StatusCode(statusCode, new ApiResponse<object> { Code = statusCode, Message = message });
 
         try
         {

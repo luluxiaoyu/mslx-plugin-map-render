@@ -1,20 +1,50 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { LocationIcon, HomeIcon, DownloadIcon, ServerIcon, ViewListIcon } from 'tdesign-icons-vue-next';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import {
+  LocationIcon,
+  HomeIcon,
+  ServerIcon,
+  ViewListIcon,
+  LockOnIcon,
+  ChevronRightIcon,
+  ShareIcon,
+  SunnyIcon,
+  MoonIcon,
+} from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import {
   getWorldSpawn,
   getTileUrl,
   ensureMediaToken,
   getMediaTokenParam,
+  getPublicMapInfo,
+  authPublicMap,
   getPublicServers,
+  hashPassword,
+  getStoredMapToken,
+  setStoredMapToken,
+  removeStoredMapToken,
+  type PublicMapInfoDto,
   type PublicServerItem,
 } from '../api/map';
 
+const route = useRoute();
+const router = useRouter();
+
 const loading = ref(true);
-const publicServers = ref<PublicServerItem[]>([]);
-const currentServerId = ref<number | null>(null);
+const publicMapInfo = ref<PublicMapInfoDto | null>(null);
+const publicServerList = ref<PublicServerItem[]>([]);
+const isDirectoryView = ref(false);
 const errorMessage = ref<string>('');
+
+const currentMapToken = ref<string>('');
+const needsPassword = ref(false);
+const inputPassword = ref('');
+const passwordError = ref('');
+const verifyingPassword = ref(false);
+
+const isDark = ref(false);
 
 const scale = ref(1);
 const translateX = ref(0);
@@ -49,43 +79,33 @@ const centerCoordinates = computed(() => {
 });
 
 // 维度配置
-const currentDimension = ref<'overworld' | 'the_nether' | 'the_end'>('overworld');
-const dimensionOptions = [
+const allDimensionOptions = [
   { label: '主世界', value: 'overworld' },
   { label: '下界', value: 'the_nether' },
   { label: '末地', value: 'the_end' },
 ];
 
+const availableDimensionOptions = computed(() => {
+  const allowed = publicMapInfo.value?.allowedDimensions;
+  if (!allowed || allowed.length === 0) return allDimensionOptions;
+  return allDimensionOptions.filter((d) => allowed.includes(d.value));
+});
+
+const currentDimension = ref<'overworld' | 'the_nether' | 'the_end'>('overworld');
+
 const currentDimensionLabel = computed(() => {
-  const opt = dimensionOptions.find((d) => d.value === currentDimension.value);
+  const opt = availableDimensionOptions.value.find((d) => d.value === currentDimension.value);
   return opt ? opt.label : '主世界';
 });
 
-const currentServerName = computed(() => {
-  const s = publicServers.value.find((item) => item.id === currentServerId.value);
-  return s ? s.name : `实例 #${currentServerId.value}`;
+const currentServerId = computed(() => {
+  return publicMapInfo.value?.serverId ?? null;
 });
 
-// 导出功能状态
-const exportDialogVisible = ref(false);
-const exportMode = ref<'loaded' | 'custom'>('loaded');
-const isExporting = ref(false);
-const exportRange = ref({
-  startX: 0,
-  startZ: 0,
-  endX: 0,
-  endZ: 0,
+const currentServerTitle = computed(() => {
+  if (!publicMapInfo.value) return '';
+  return publicMapInfo.value.title || publicMapInfo.value.name || `实例 #${publicMapInfo.value.serverId}`;
 });
-
-const openExportDialog = () => {
-  exportRange.value = {
-    startX: centerCoordinates.value.regionX - 1,
-    startZ: centerCoordinates.value.regionZ - 1,
-    endX: centerCoordinates.value.regionX + 1,
-    endZ: centerCoordinates.value.regionZ + 1,
-  };
-  exportDialogVisible.value = true;
-};
 
 const jumpToCoordinates = (targetX: number, targetZ: number) => {
   translateX.value = -targetX * scale.value;
@@ -94,12 +114,6 @@ const jumpToCoordinates = (targetX: number, targetZ: number) => {
 };
 
 const handleDimensionChange = async () => {
-  loadedRegions.value = [];
-  scale.value = 1;
-  await jumpToSpawn();
-};
-
-const handleServerChange = async () => {
   loadedRegions.value = [];
   scale.value = 1;
   await jumpToSpawn();
@@ -114,11 +128,17 @@ const handleSearchJump = () => {
 const jumpToSpawn = async () => {
   if (currentServerId.value === null) return;
   try {
-    const spawn = await getWorldSpawn(currentServerId.value, currentDimension.value);
+    const spawn = await getWorldSpawn(currentServerId.value, currentDimension.value, currentMapToken.value);
     inputX.value = spawn.x;
     inputZ.value = spawn.z;
     jumpToCoordinates(spawn.x, spawn.z);
-  } catch {
+  } catch (err: any) {
+    if (err?.code === 401 || err?.message?.includes('密码') || err?.message?.includes('凭证')) {
+      if (currentServerId.value) removeStoredMapToken(currentServerId.value);
+      if (publicMapInfo.value?.slug) removeStoredMapToken(publicMapInfo.value.slug);
+      needsPassword.value = true;
+      return;
+    }
     inputX.value = 0;
     inputZ.value = 0;
     jumpToCoordinates(0, 0);
@@ -126,13 +146,12 @@ const jumpToSpawn = async () => {
 };
 
 const updateVisibleRegions = () => {
-  if (currentServerId.value === null) return;
+  if (currentServerId.value === null || needsPassword.value) return;
 
   const cx = centerCoordinates.value.regionX;
   const cz = centerCoordinates.value.regionZ;
   const missingTiles: { x: number; z: number; key: string; distance: number }[] = [];
 
-  // 全屏模式下视口更大，视野扩展到 5x5 区块
   for (let dx = -2; dx <= 2; dx++) {
     for (let dz = -2; dz <= 2; dz++) {
       const rx = cx + dx;
@@ -150,7 +169,14 @@ const updateVisibleRegions = () => {
 
   const tokenParam = getMediaTokenParam();
   missingTiles.forEach((item) => {
-    const src = getTileUrl(currentServerId.value!, item.x, item.z, tokenParam, currentDimension.value);
+    const src = getTileUrl(
+      currentServerId.value!,
+      item.x,
+      item.z,
+      tokenParam,
+      currentDimension.value,
+      currentMapToken.value
+    );
 
     loadedRegions.value.push({
       x: item.x,
@@ -192,94 +218,41 @@ const handleScroll = (e: WheelEvent) => {
   updateVisibleRegions();
 };
 
-// 导出地图
-const handleExportMap = async () => {
-  if (currentServerId.value === null) return;
-  isExporting.value = true;
+// 分享地图链接
+const handleShare = async () => {
+  const slugOrId = publicMapInfo.value?.slug || currentServerId.value || '';
+  const shareUrl = `${window.location.origin}/public/map/${slugOrId}?dimension=${currentDimension.value}&x=${centerCoordinates.value.blockX}&z=${centerCoordinates.value.blockZ}`;
   try {
-    let tilesToExport: { x: number; z: number; src: string }[] = [];
+    await navigator.clipboard.writeText(shareUrl);
+    MessagePlugin.success('地图链接已复制到剪贴板');
+  } catch {
+    MessagePlugin.warning('复制失败，请手动复制当前浏览器地址');
+  }
+};
 
-    if (exportMode.value === 'loaded') {
-      tilesToExport = loadedRegions.value.filter((t) => t.loaded);
-      if (tilesToExport.length === 0) {
-        MessagePlugin.warning('当前没有已加载的地图区块');
-        isExporting.value = false;
-        return;
-      }
-    } else {
-      const { startX, startZ, endX, endZ } = exportRange.value;
-      const minX = Math.min(startX, endX);
-      const maxX = Math.max(startX, endX);
-      const minZ = Math.min(startZ, endZ);
-      const maxZ = Math.max(startZ, endZ);
+// 主题切换
+const checkInitialTheme = () => {
+  const mode = document.documentElement.getAttribute('theme-mode');
+  if (mode === 'dark') return true;
+  if (mode === 'light') return false;
+  return (
+    document.documentElement.classList.contains('dark') ||
+    (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+  );
+};
 
-      const totalTiles = (maxX - minX + 1) * (maxZ - minZ + 1);
-      if (totalTiles > 100) {
-        MessagePlugin.warning(`选择的区块数量(${totalTiles})过大，最大支持同时导出 100 个区块`);
-        isExporting.value = false;
-        return;
-      }
+const toggleTheme = () => {
+  isDark.value = !isDark.value;
+  applyTheme(isDark.value);
+};
 
-      const tokenParam = getMediaTokenParam();
-      for (let rx = minX; rx <= maxX; rx++) {
-        for (let rz = minZ; rz <= maxZ; rz++) {
-          tilesToExport.push({
-            x: rx,
-            z: rz,
-            src: getTileUrl(currentServerId.value!, rx, rz, tokenParam, currentDimension.value),
-          });
-        }
-      }
-    }
-
-    const loadMessage = MessagePlugin.loading('正在拼接地图图像，请稍候...');
-
-    const minX = Math.min(...tilesToExport.map((t) => t.x));
-    const maxX = Math.max(...tilesToExport.map((t) => t.x));
-    const minZ = Math.min(...tilesToExport.map((t) => t.z));
-    const maxZ = Math.max(...tilesToExport.map((t) => t.z));
-
-    const canvas = document.createElement('canvas');
-    canvas.width = (maxX - minX + 1) * 512;
-    canvas.height = (maxZ - minZ + 1) * 512;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) throw new Error('无法创建 Canvas 上下文');
-
-    ctx.fillStyle = document.documentElement.classList.contains('dark') ? '#18181b' : '#fafafa';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const drawPromises = tilesToExport.map((tile) => {
-      return new Promise<void>((resolve) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          ctx.drawImage(img, (tile.x - minX) * 512, (tile.z - minZ) * 512, 512, 512);
-          resolve();
-        };
-        img.onerror = () => {
-          resolve();
-        };
-        img.src = tile.src;
-      });
-    });
-
-    await Promise.all(drawPromises);
-
-    const dataUrl = canvas.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = dataUrl;
-    a.download = `${currentServerName.value}_${currentDimension.value}_r.${minX}.${minZ}_to_r.${maxX}.${maxZ}.png`;
-    a.click();
-
-    MessagePlugin.close(loadMessage);
-    MessagePlugin.success('地图导出成功');
-    exportDialogVisible.value = false;
-  } catch (error) {
-    console.error('地图导出失败:', error);
-    MessagePlugin.error('地图导出失败，请检查网络或控制台日志');
-  } finally {
-    isExporting.value = false;
+const applyTheme = (dark: boolean) => {
+  if (dark) {
+    document.documentElement.setAttribute('theme-mode', 'dark');
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.setAttribute('theme-mode', 'light');
+    document.documentElement.classList.remove('dark');
   }
 };
 
@@ -301,50 +274,189 @@ const handleFullscreenChange = () => {
   isFullscreen.value = !!document.fullscreenElement;
 };
 
-onMounted(async () => {
-  document.addEventListener('fullscreenchange', handleFullscreenChange);
-  await ensureMediaToken();
+// 密码验证
+const handleVerifyPassword = async () => {
+  if (!inputPassword.value.trim()) {
+    passwordError.value = '请输入访问密码';
+    return;
+  }
+
+  verifyingPassword.value = true;
+  passwordError.value = '';
+  try {
+    const hash = await hashPassword(inputPassword.value.trim());
+    const res: any = await authPublicMap({
+      slug: publicMapInfo.value?.slug,
+      serverId: publicMapInfo.value?.serverId,
+      passwordHash: hash,
+    });
+
+    const token = res?.mapToken ?? res?.MapToken;
+    currentMapToken.value = token;
+    if (publicMapInfo.value?.slug) {
+      setStoredMapToken(publicMapInfo.value.slug, token);
+    }
+    if (publicMapInfo.value?.serverId) {
+      setStoredMapToken(publicMapInfo.value.serverId, token);
+    }
+
+    needsPassword.value = false;
+    inputPassword.value = '';
+    MessagePlugin.success('验证通过');
+    await initMapContent();
+  } catch (err: any) {
+    passwordError.value = err?.message || '访问密码错误，请重试';
+  } finally {
+    verifyingPassword.value = false;
+  }
+};
+
+// 初始化地图视角与切片
+const initMapContent = async () => {
+  const allowed = publicMapInfo.value?.allowedDimensions || [];
+  if (allowed.length > 0 && !allowed.includes(currentDimension.value)) {
+    currentDimension.value = allowed[0] as any;
+  }
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const paramDim = urlParams.get('dimension');
+  if (paramDim && allowed.includes(paramDim)) {
+    currentDimension.value = paramDim as any;
+  }
+
+  const paramX = urlParams.get('x');
+  const paramZ = urlParams.get('z');
+  if (paramX !== null && paramZ !== null) {
+    inputX.value = Number(paramX);
+    inputZ.value = Number(paramZ);
+    jumpToCoordinates(Number(paramX), Number(paramZ));
+  } else {
+    await jumpToSpawn();
+  }
+};
+
+const loadInstanceMap = async (slugOrId: string | number) => {
+  loading.value = true;
+  errorMessage.value = '';
+  isDirectoryView.value = false;
+
+  const isNumeric = /^\d+$/.test(String(slugOrId));
+  const serverId = isNumeric ? Number(slugOrId) : undefined;
+  const slug = isNumeric ? undefined : String(slugOrId);
+
+  currentMapToken.value = getStoredMapToken(String(slugOrId));
 
   try {
-    const servers = await getPublicServers();
-    publicServers.value = servers || [];
+    const rawInfo: any = await getPublicMapInfo({
+      slug,
+      serverId,
+      mapToken: currentMapToken.value,
+    });
 
-    if (publicServers.value.length === 0) {
-      errorMessage.value = '暂无可公开查看的服务器实例';
+    const info: PublicMapInfoDto = {
+      serverId: rawInfo?.serverId ?? rawInfo?.ServerId ?? 0,
+      name: rawInfo?.name ?? rawInfo?.Name ?? '',
+      title: rawInfo?.title ?? rawInfo?.Title ?? '',
+      slug: rawInfo?.slug ?? rawInfo?.Slug ?? '',
+      allowedDimensions: rawInfo?.allowedDimensions ?? rawInfo?.AllowedDimensions ?? ['overworld', 'the_nether', 'the_end'],
+      requirePassword: rawInfo?.requirePassword ?? rawInfo?.RequirePassword ?? false,
+      hasAccess: rawInfo?.hasAccess ?? rawInfo?.HasAccess ?? false,
+    };
+    publicMapInfo.value = info;
+
+    if (info.title || info.name) {
+      window.document.title = `${info.title || info.name} - 世界地图`;
+    }
+
+    if (info.requirePassword && !info.hasAccess) {
+      needsPassword.value = true;
       loading.value = false;
       return;
     }
 
-    // 读取 URL 参数中的 serverId
-    const urlParams = new URLSearchParams(window.location.search);
-    const paramServerId = urlParams.get('serverId');
-    if (paramServerId && publicServers.value.some((s) => s.id === Number(paramServerId))) {
-      currentServerId.value = Number(paramServerId);
-    } else {
-      currentServerId.value = publicServers.value[0].id;
-    }
-
-    // 读取 URL 参数中的初始坐标与维度
-    const paramX = urlParams.get('x');
-    const paramZ = urlParams.get('z');
-    const paramDim = urlParams.get('dimension');
-    if (paramDim && dimensionOptions.some((d) => d.value === paramDim)) {
-      currentDimension.value = paramDim as any;
-    }
-
-    if (paramX !== null && paramZ !== null) {
-      inputX.value = Number(paramX);
-      inputZ.value = Number(paramZ);
-      jumpToCoordinates(Number(paramX), Number(paramZ));
-    } else {
-      await jumpToSpawn();
-    }
+    needsPassword.value = false;
+    await initMapContent();
   } catch (err: any) {
-    console.error('获取公开服务器地图失败:', err);
-    errorMessage.value = err?.message || '无法获取公开服务器列表，请确认宿主已开启公开页面访问';
+    console.error('加载地图失败:', err);
+    if (err?.code === 401 || err?.message?.includes('密码')) {
+      removeStoredMapToken(slugOrId);
+      needsPassword.value = true;
+    } else {
+      errorMessage.value = err?.message || '该服务器暂未开启公开地图访问。';
+    }
   } finally {
     loading.value = false;
   }
+};
+
+const handleSelectDirectoryServer = (server: PublicServerItem) => {
+  const target = server.slug || server.id;
+  router.push(`/public/map/${target}`);
+};
+
+const initPage = async () => {
+  isDark.value = checkInitialTheme();
+  await ensureMediaToken();
+
+  const routeSlug = (route.params.slug as string) || '';
+  if (routeSlug) {
+    await loadInstanceMap(routeSlug);
+    return;
+  }
+
+  const queryServerId = route.query.serverId as string;
+  const querySlug = route.query.slug as string;
+  if (queryServerId) {
+    await loadInstanceMap(Number(queryServerId));
+    return;
+  }
+  if (querySlug) {
+    await loadInstanceMap(querySlug);
+    return;
+  }
+
+  try {
+    loading.value = true;
+    const rawServers: any = await getPublicServers();
+    publicServerList.value = (rawServers || []).map((s: any) => ({
+      id: s?.id ?? s?.Id,
+      name: s?.name ?? s?.Name,
+      slug: s?.slug ?? s?.Slug,
+    }));
+
+    if (publicServerList.value.length === 0) {
+      errorMessage.value = '暂无可公开查看的服务器地图';
+      loading.value = false;
+      return;
+    }
+
+    if (publicServerList.value.length === 1) {
+      const s = publicServerList.value[0];
+      await loadInstanceMap(s.slug || s.id);
+      return;
+    }
+
+    isDirectoryView.value = true;
+    loading.value = false;
+  } catch (err: any) {
+    errorMessage.value = err?.message || '获取公开服务器列表失败';
+    loading.value = false;
+  }
+};
+
+watch(
+  () => route.params.slug,
+  (newSlug) => {
+    if (newSlug) {
+      loadedRegions.value = [];
+      loadInstanceMap(newSlug as string);
+    }
+  }
+);
+
+onMounted(() => {
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  initPage();
 });
 
 onUnmounted(() => {
@@ -353,24 +465,64 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="w-screen h-screen overflow-hidden relative select-none bg-zinc-950 font-sans text-zinc-100">
-    <!-- 加载中状态 -->
+  <div class="w-screen h-screen overflow-hidden relative select-none bg-zinc-50 dark:bg-zinc-950 font-sans text-zinc-800 dark:text-zinc-100 transition-colors duration-200">
+    <!-- 加载状态 -->
     <div v-if="loading" class="w-full h-full flex flex-col items-center justify-center gap-3">
       <t-loading size="large" />
-      <span class="text-sm text-zinc-400">正在载入世界地图...</span>
+      <span class="text-sm text-zinc-500 dark:text-zinc-400">正在载入世界地图...</span>
     </div>
 
-    <!-- 异常状态（未公开或无可用服务器） -->
+    <!-- 目录视图 -->
     <div
-      v-else-if="errorMessage || publicServers.length === 0"
+      v-else-if="isDirectoryView"
+      class="w-full h-full flex flex-col items-center justify-center p-6 bg-zinc-50 dark:bg-zinc-950 relative overflow-y-auto"
+    >
+      <div class="w-full max-w-lg flex flex-col gap-5">
+        <div class="text-center">
+          <div class="inline-flex p-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-sky-500 mb-3 shadow-md">
+            <server-icon size="32px" />
+          </div>
+          <h2 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 m-0 mb-1">公开世界地图</h2>
+          <p class="text-sm text-zinc-500 dark:text-zinc-400 m-0">请选择要查看的服务器</p>
+        </div>
+
+        <div class="flex flex-col gap-2.5">
+          <div
+            v-for="s in publicServerList"
+            :key="s.id"
+            class="group flex items-center justify-between p-4 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md transition-all cursor-pointer"
+            @click="handleSelectDirectoryServer(s)"
+          >
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 dark:text-zinc-300">
+                <server-icon size="20px" />
+              </div>
+              <div class="flex flex-col min-w-0">
+                <span class="text-sm font-semibold text-zinc-800 dark:text-zinc-200 group-hover:text-sky-500 transition-colors truncate">
+                  {{ s.name }}
+                </span>
+                <span class="text-xs text-zinc-400 font-mono">
+                  /public/map/{{ s.slug || s.id }}
+                </span>
+              </div>
+            </div>
+            <chevron-right-icon class="text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-transform group-hover:translate-x-1" size="20px" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 异常状态 -->
+    <div
+      v-else-if="errorMessage"
       class="w-full h-full flex flex-col items-center justify-center gap-4 p-6 text-center"
     >
-      <div class="w-16 h-16 rounded-2xl bg-zinc-800/80 border border-zinc-700/60 flex items-center justify-center text-zinc-400">
+      <div class="w-16 h-16 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-400 shadow-md">
         <server-icon size="32px" />
       </div>
-      <h2 class="text-xl font-bold text-zinc-200 m-0">未开启公开地图访问</h2>
-      <p class="text-sm text-zinc-400 max-w-md m-0 leading-relaxed">
-        {{ errorMessage || '管理员尚未为任何服务器开启免登录公开地图访问权限。' }}
+      <h2 class="text-xl font-bold text-zinc-800 dark:text-zinc-200 m-0">地图未开放</h2>
+      <p class="text-sm text-zinc-500 dark:text-zinc-400 max-w-md m-0 leading-relaxed">
+        {{ errorMessage }}
       </p>
     </div>
 
@@ -384,6 +536,53 @@ onUnmounted(() => {
       @mouseup="stopDrag"
       @mouseleave="stopDrag"
     >
+      <!-- 密码验证卡片 -->
+      <div
+        v-if="needsPassword"
+        class="absolute inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-md"
+        @mousedown.stop
+        @wheel.stop
+      >
+        <div class="w-full max-w-sm p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col items-center text-center">
+          <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-3 shadow-inner">
+            <lock-on-icon size="28px" />
+          </div>
+          <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100 m-0 mb-1">输入访问密码</h3>
+          <p class="text-xs text-zinc-500 dark:text-zinc-400 mb-5 leading-relaxed">
+            该服务器地图已设置访问密码，请输入密码继续。
+          </p>
+
+          <div class="w-full flex flex-col gap-3">
+            <t-input
+              v-model="inputPassword"
+              type="password"
+              placeholder="请输入访问密码"
+              size="large"
+              clearable
+              autofocus
+              @enter="handleVerifyPassword"
+            >
+              <template #prefix-icon><lock-on-icon /></template>
+            </t-input>
+
+            <div v-if="passwordError" class="text-xs text-rose-500 text-left -mt-1 pl-1">
+              {{ passwordError }}
+            </div>
+
+            <t-button
+              theme="primary"
+              size="large"
+              block
+              :loading="verifyingPassword"
+              class="!rounded-xl shadow-md"
+              @click="handleVerifyPassword"
+            >
+              确认解锁
+            </t-button>
+          </div>
+        </div>
+      </div>
+
       <!-- 地图瓦片承载容器 -->
       <div
         class="absolute top-1/2 left-1/2 origin-center transition-transform duration-[50ms] ease-linear"
@@ -392,7 +591,7 @@ onUnmounted(() => {
         <div
           v-for="tile in loadedRegions"
           :key="tile.key"
-          class="absolute w-[512px] h-[512px] -ml-[256px] -mt-[256px] flex items-center justify-center bg-zinc-900/40"
+          class="absolute w-[512px] h-[512px] -ml-[256px] -mt-[256px] flex items-center justify-center bg-zinc-100/50 dark:bg-zinc-900/50"
           :style="{ left: `${tile.x * 512}px`, top: `${tile.z * 512}px` }"
         >
           <img
@@ -408,45 +607,41 @@ onUnmounted(() => {
 
       <!-- 中心十字准心 -->
       <div
-        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10 w-5 h-5 flex items-center justify-center"
+        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10 w-4 h-4 flex items-center justify-center"
       >
-        <div class="absolute w-[2px] h-4 bg-red-500 shadow-[0_0_3px_rgba(0,0,0,0.8)]"></div>
-        <div class="absolute w-4 h-[2px] bg-red-500 shadow-[0_0_3px_rgba(0,0,0,0.8)]"></div>
+        <div class="absolute w-[2px] h-3.5 bg-red-500 shadow-[0_0_2px_rgba(0,0,0,0.6)]"></div>
+        <div class="absolute w-3.5 h-[2px] bg-red-500 shadow-[0_0_2px_rgba(0,0,0,0.6)]"></div>
       </div>
 
-      <!-- 顶部控制与搜索浮动栏 -->
+      <!-- 顶部控制浮动栏 -->
       <div
-        class="absolute top-4 left-4 p-3 flex flex-wrap items-center gap-2 bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-700/60 shadow-2xl z-20 cursor-default"
+        class="absolute top-4 left-4 p-2.5 flex flex-wrap items-center gap-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 shadow-lg z-20 cursor-default"
         @mousedown.stop
         @wheel.stop
       >
-        <!-- 服务器实例切换（多实例时展示） -->
-        <t-select
-          v-if="publicServers.length > 1"
-          v-model="currentServerId"
-          class="!w-[140px]"
-          :popup-props="{ zIndex: 9999 }"
-          @change="handleServerChange"
-        >
-          <t-option v-for="s in publicServers" :key="s.id" :value="s.id" :label="s.name" />
-        </t-select>
+        <!-- 当前服务器名称徽章 -->
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/60 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
+          <server-icon size="16px" class="text-sky-500 shrink-0" />
+          <span class="max-w-[180px] truncate">{{ currentServerTitle }}</span>
+        </div>
 
-        <div v-if="publicServers.length > 1" class="w-px h-6 bg-zinc-700/60 mx-0.5"></div>
+        <!-- 维度选择（当开放多个维度时展示） -->
+        <template v-if="availableDimensionOptions.length > 1">
+          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700/60 mx-0.5"></div>
+          <t-select
+            v-model="currentDimension"
+            :options="availableDimensionOptions"
+            class="!w-[110px]"
+            :popup-props="{ zIndex: 9999 }"
+            @change="handleDimensionChange"
+          />
+        </template>
 
-        <!-- 维度选择 -->
-        <t-select
-          v-model="currentDimension"
-          :options="dimensionOptions"
-          class="!w-[110px]"
-          :popup-props="{ zIndex: 9999 }"
-          @change="handleDimensionChange"
-        />
-
-        <div class="w-px h-6 bg-zinc-700/60 mx-0.5"></div>
+        <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700/60 mx-0.5"></div>
 
         <!-- 坐标跳转 -->
-        <t-input v-model="inputX" type="number" placeholder="X" class="!w-[80px]" @enter="handleSearchJump" />
-        <t-input v-model="inputZ" type="number" placeholder="Z" class="!w-[80px]" @enter="handleSearchJump" />
+        <t-input v-model="inputX" type="number" placeholder="X" class="!w-[76px]" @enter="handleSearchJump" />
+        <t-input v-model="inputZ" type="number" placeholder="Z" class="!w-[76px]" @enter="handleSearchJump" />
 
         <t-button theme="primary" class="!rounded-xl shadow-sm" @click="handleSearchJump">
           <template #icon><location-icon /></template> 定位
@@ -455,29 +650,42 @@ onUnmounted(() => {
         <!-- 回到出生点 -->
         <t-button
           variant="outline"
-          class="!rounded-xl !bg-zinc-800 !border-zinc-700 hover:!bg-zinc-700 !text-zinc-200 transition-colors"
+          class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
           title="回到出生点"
           @click="jumpToSpawn"
         >
           <template #icon><home-icon /></template>
         </t-button>
 
-        <div class="w-px h-6 bg-zinc-700/60 mx-0.5"></div>
+        <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700/60 mx-0.5"></div>
 
-        <!-- 导出图片 -->
+        <!-- 分享按钮 -->
         <t-button
           variant="outline"
-          class="!rounded-xl !bg-zinc-800 !border-zinc-700 hover:!bg-zinc-700 !text-zinc-200 transition-colors"
-          title="导出地图"
-          @click="openExportDialog"
+          class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
+          title="分享当前位置地图链接"
+          @click="handleShare"
         >
-          <template #icon><download-icon /></template> 导出
+          <template #icon><share-icon /></template> 分享
+        </t-button>
+
+        <!-- 明暗模式切换 -->
+        <t-button
+          variant="outline"
+          class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
+          :title="isDark ? '切换至亮色模式' : '切换至暗色模式'"
+          @click="toggleTheme"
+        >
+          <template #icon>
+            <sunny-icon v-if="isDark" />
+            <moon-icon v-else />
+          </template>
         </t-button>
 
         <!-- 全屏切换 -->
         <t-button
           variant="outline"
-          class="!rounded-xl !bg-zinc-800 !border-zinc-700 hover:!bg-zinc-700 !text-zinc-200 transition-colors"
+          class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
           :title="isFullscreen ? '退出全屏' : '全屏显示'"
           @click="toggleFullscreen"
         >
@@ -485,102 +693,61 @@ onUnmounted(() => {
         </t-button>
       </div>
 
-      <!-- 底部坐标与比例尺信息卡片 -->
+      <!-- 底部信息 HUD 卡片 -->
       <div
-        class="absolute bottom-4 right-4 p-4 flex flex-col font-mono text-sm bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-700/60 shadow-2xl z-20 pointer-events-none min-w-[220px]"
+        class="absolute bottom-4 right-4 p-4 flex flex-col font-mono text-sm bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 shadow-lg z-20 pointer-events-none min-w-[210px]"
       >
         <div class="flex justify-between items-center gap-6 mb-2">
-          <span class="text-xs text-zinc-400">服务器:</span>
-          <span class="font-bold text-sky-400 truncate max-w-[120px]">{{ currentServerName }}</span>
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">服务器:</span>
+          <span class="font-bold text-sky-500 truncate max-w-[130px]">{{ currentServerTitle }}</span>
         </div>
 
         <div class="flex justify-between items-center gap-6 mb-2">
-          <span class="text-xs text-zinc-400">当前维度:</span>
-          <span class="font-bold text-emerald-400">{{ currentDimensionLabel }}</span>
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">当前维度:</span>
+          <span class="font-bold text-emerald-500">{{ currentDimensionLabel }}</span>
         </div>
 
         <div class="flex justify-between items-center gap-6 mb-2">
-          <span class="text-xs text-zinc-400">方块坐标:</span>
-          <span class="font-bold text-zinc-100"
-            >X: {{ centerCoordinates.blockX }}, Z: {{ centerCoordinates.blockZ }}</span
-          >
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">方块坐标:</span>
+          <span class="font-bold text-zinc-800 dark:text-zinc-100">
+            X: {{ centerCoordinates.blockX }}, Z: {{ centerCoordinates.blockZ }}
+          </span>
         </div>
 
         <div class="flex justify-between items-center gap-6 mb-2">
-          <span class="text-xs text-zinc-400">区块区号:</span>
-          <span class="font-bold text-zinc-300"
-            >r.{{ centerCoordinates.regionX }}.{{ centerCoordinates.regionZ }}</span
-          >
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">区块区号:</span>
+          <span class="font-bold text-zinc-600 dark:text-zinc-300">
+            r.{{ centerCoordinates.regionX }}.{{ centerCoordinates.regionZ }}
+          </span>
         </div>
 
         <div class="flex justify-between items-center gap-6 mb-3">
-          <span class="text-xs text-zinc-400">当前缩放:</span>
-          <span class="font-bold text-amber-400">{{ Math.round(scale * 100) }}%</span>
+          <span class="text-xs text-zinc-500 dark:text-zinc-400">当前缩放:</span>
+          <span class="font-bold text-amber-500">{{ Math.round(scale * 100) }}%</span>
         </div>
 
         <div
-          class="pt-2.5 border-t border-dashed border-zinc-700/80 text-right text-[11px] text-zinc-400 font-sans tracking-widest"
+          class="pt-2.5 border-t border-dashed border-zinc-200 dark:border-zinc-700/80 text-right text-[11px] text-zinc-400 font-sans tracking-wider"
         >
-          滚轮缩放 | 按住拖拽
+          滚轮缩放 / 拖拽移动
         </div>
       </div>
     </div>
-
-    <!-- 导出地图子弹窗 -->
-    <t-dialog
-      v-model:visible="exportDialogVisible"
-      header="导出地图为 PNG"
-      attach="body"
-      width="min(500px, 92vw)"
-      :confirmBtn="{
-        content: '开始导出',
-        theme: 'primary',
-        loading: isExporting,
-      }"
-      :cancelBtn="{ content: '取消', disabled: isExporting }"
-      @confirm="handleExportMap"
-    >
-      <div class="flex flex-col gap-4 py-2">
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-[var(--td-text-color-primary)] whitespace-nowrap">导出模式</span>
-          <t-radio-group v-model="exportMode" variant="default-filled">
-            <t-radio-button value="loaded">当前可视范围(已加载)</t-radio-button>
-            <t-radio-button value="custom">自定义区块范围</t-radio-button>
-          </t-radio-group>
-        </div>
-
-        <div
-          v-if="exportMode === 'custom'"
-          class="flex flex-col gap-3 p-4 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800"
-        >
-          <div class="text-xs text-[var(--td-text-color-secondary)] mb-1">
-            注意：单位为区块(Region)坐标，而非方块坐标。为防止内存溢出，单次最多导出 100 个区块。
-          </div>
-
-          <div class="flex items-center gap-2">
-            <span class="shrink-0 whitespace-nowrap text-sm text-[var(--td-text-color-secondary)]">起始点：</span>
-            <t-input v-model.number="exportRange.startX" type="number" placeholder="Region X" />
-            <span class="text-zinc-400 shrink-0">,</span>
-            <t-input v-model.number="exportRange.startZ" type="number" placeholder="Region Z" />
-          </div>
-
-          <div class="flex items-center gap-2">
-            <span class="shrink-0 whitespace-nowrap text-sm text-[var(--td-text-color-secondary)]">结束点：</span>
-            <t-input v-model.number="exportRange.endX" type="number" placeholder="Region X" />
-            <span class="text-zinc-400 shrink-0">,</span>
-            <t-input v-model.number="exportRange.endZ" type="number" placeholder="Region Z" />
-          </div>
-        </div>
-      </div>
-    </t-dialog>
   </div>
 </template>
 
 <style scoped>
 .custom-grid-bg {
   background-image:
-    linear-gradient(rgba(82, 82, 91, 0.25) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(82, 82, 91, 0.25) 1px, transparent 1px);
+    linear-gradient(rgba(161, 161, 170, 0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(161, 161, 170, 0.25) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+:global(html[theme-mode='dark']) .custom-grid-bg,
+:global(html.dark) .custom-grid-bg {
+  background-image:
+    linear-gradient(rgba(82, 82, 91, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(82, 82, 91, 0.3) 1px, transparent 1px);
 }
 </style>

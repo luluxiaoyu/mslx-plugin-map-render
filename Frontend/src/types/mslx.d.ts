@@ -3,11 +3,27 @@ declare module 'mslx-request' {
     export default request;
 }
 
+declare module 'vue-router' {
+    export interface RouteLocationNormalizedLoaded {
+        params: Record<string, string | string[]>;
+        query: Record<string, string | string[]>;
+        path: string;
+        fullPath: string;
+    }
+    export interface Router {
+        push(to: any): Promise<any>;
+        replace(to: any): Promise<any>;
+    }
+    export function useRoute(): RouteLocationNormalizedLoaded;
+    export function useRouter(): Router;
+}
+
 declare global {
     interface Window {
         MSLX_Stores: any;
         MSLX_API: any;
         mslxRequest: any;
+        VueRouter: any;
     }
 }
 
