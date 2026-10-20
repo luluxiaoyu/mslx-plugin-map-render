@@ -11,6 +11,10 @@ import {
   ShareIcon,
   SunnyIcon,
   MoonIcon,
+  AddIcon,
+  RemoveIcon,
+  FullscreenIcon,
+  FullscreenExitIcon,
 } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import {
@@ -45,6 +49,8 @@ const passwordError = ref('');
 const verifyingPassword = ref(false);
 
 const isDark = ref(false);
+const showCoordSearch = ref(false);
+const mobileHudExpanded = ref(false);
 
 const scale = ref(1);
 const translateX = ref(0);
@@ -52,6 +58,15 @@ const translateY = ref(0);
 let isDragging = false;
 let startX = 0;
 let startY = 0;
+
+let isTouching = false;
+let isPinching = false;
+let touchStartX = 0;
+let touchStartY = 0;
+let initialPinchDistance = 0;
+let initialPinchScale = 1;
+let pinchMidpointX = 0;
+let pinchMidpointY = 0;
 
 const inputX = ref<number | null>(0);
 const inputZ = ref<number | null>(0);
@@ -189,6 +204,7 @@ const updateVisibleRegions = () => {
 };
 
 const startDrag = (e: MouseEvent) => {
+  if (isTouching) return;
   isDragging = true;
   startX = e.clientX - translateX.value;
   startY = e.clientY - translateY.value;
@@ -204,6 +220,83 @@ const onDrag = (e: MouseEvent) => {
 const stopDrag = () => {
   isDragging = false;
 };
+
+const handleTouchStart = (e: TouchEvent) => {
+  if (e.touches.length === 1) {
+    isTouching = true;
+    isPinching = false;
+    touchStartX = e.touches[0].clientX - translateX.value;
+    touchStartY = e.touches[0].clientY - translateY.value;
+  } else if (e.touches.length >= 2) {
+    isTouching = true;
+    isPinching = true;
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    initialPinchDistance = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+    initialPinchScale = scale.value;
+    pinchMidpointX = (t0.clientX + t1.clientX) / 2;
+    pinchMidpointY = (t0.clientY + t1.clientY) / 2;
+  }
+};
+
+const handleTouchMove = (e: TouchEvent) => {
+  if (!isTouching) return;
+
+  if (e.touches.length === 1 && !isPinching) {
+    translateX.value = e.touches[0].clientX - touchStartX;
+    translateY.value = e.touches[0].clientY - touchStartY;
+    updateVisibleRegions();
+  } else if (e.touches.length >= 2) {
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    const curDist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+
+    if (initialPinchDistance > 0 && curDist > 0) {
+      const pinchRatio = curDist / initialPinchDistance;
+      const targetScale = Math.min(Math.max(0.15, initialPinchScale * pinchRatio), 6);
+
+      if (scale.value !== targetScale) {
+        const scaleRatio = targetScale / scale.value;
+        translateX.value = translateX.value * scaleRatio;
+        translateY.value = translateY.value * scaleRatio;
+        scale.value = targetScale;
+      }
+
+      const curMidX = (t0.clientX + t1.clientX) / 2;
+      const curMidY = (t0.clientY + t1.clientY) / 2;
+      translateX.value += curMidX - pinchMidpointX;
+      translateY.value += curMidY - pinchMidpointY;
+      pinchMidpointX = curMidX;
+      pinchMidpointY = curMidY;
+
+      updateVisibleRegions();
+    }
+  }
+};
+
+const handleTouchEnd = (e: TouchEvent) => {
+  if (e.touches.length === 1) {
+    isPinching = false;
+    touchStartX = e.touches[0].clientX - translateX.value;
+    touchStartY = e.touches[0].clientY - translateY.value;
+  } else if (e.touches.length === 0) {
+    isTouching = false;
+    isPinching = false;
+  }
+};
+
+const zoomBy = (delta: number) => {
+  const newScale = Math.min(Math.max(0.15, scale.value + delta), 6);
+  if (newScale === scale.value) return;
+  const scaleRatio = newScale / scale.value;
+  translateX.value = translateX.value * scaleRatio;
+  translateY.value = translateY.value * scaleRatio;
+  scale.value = newScale;
+  updateVisibleRegions();
+};
+
+const zoomIn = () => zoomBy(0.25);
+const zoomOut = () => zoomBy(-0.25);
 
 const handleScroll = (e: WheelEvent) => {
   e.preventDefault();
@@ -529,12 +622,17 @@ onUnmounted(() => {
     <!-- 正常地图交互视口 -->
     <div
       v-else
-      class="w-full h-full relative overflow-hidden cursor-grab active:cursor-grabbing custom-grid-bg"
+      class="w-full h-full relative overflow-hidden cursor-grab active:cursor-grabbing custom-grid-bg touch-none"
+      style="touch-action: none;"
       @wheel="handleScroll"
       @mousedown="startDrag"
       @mousemove="onDrag"
       @mouseup="stopDrag"
       @mouseleave="stopDrag"
+      @touchstart.passive="handleTouchStart"
+      @touchmove.prevent="handleTouchMove"
+      @touchend="handleTouchEnd"
+      @touchcancel="handleTouchEnd"
     >
       <!-- 密码验证卡片 -->
       <div
@@ -542,6 +640,8 @@ onUnmounted(() => {
         class="absolute inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/70 backdrop-blur-md"
         @mousedown.stop
         @wheel.stop
+        @touchstart.stop
+        @touchmove.stop
       >
         <div class="w-full max-w-sm p-6 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl flex flex-col items-center text-center">
           <div class="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-3 shadow-inner">
@@ -585,13 +685,13 @@ onUnmounted(() => {
 
       <!-- 地图瓦片承载容器 -->
       <div
-        class="absolute top-1/2 left-1/2 origin-center transition-transform duration-[50ms] ease-linear"
+        class="absolute top-1/2 left-1/2 origin-center transition-transform duration-[50ms] ease-linear pointer-events-none"
         :style="{ transform: `translate(${translateX}px, ${translateY}px) scale(${scale})` }"
       >
         <div
           v-for="tile in loadedRegions"
           :key="tile.key"
-          class="absolute w-[512px] h-[512px] -ml-[256px] -mt-[256px] flex items-center justify-center bg-zinc-100/50 dark:bg-zinc-900/50"
+          class="absolute w-[512px] h-[512px] -ml-[256px] -mt-[256px] flex items-center justify-center bg-zinc-100/50 dark:bg-zinc-900/50 pointer-events-none"
           :style="{ left: `${tile.x * 512}px`, top: `${tile.z * 512}px` }"
         >
           <img
@@ -613,123 +713,232 @@ onUnmounted(() => {
         <div class="absolute w-3.5 h-[2px] bg-red-500 shadow-[0_0_2px_rgba(0,0,0,0.6)]"></div>
       </div>
 
-      <!-- 顶部控制浮动栏 -->
+      <!-- 顶部控制浮动栏：移动端单行对齐并支持展开坐标输入，桌面端优雅排布 -->
       <div
-        class="absolute top-4 left-4 p-2.5 flex flex-wrap items-center gap-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 shadow-lg z-20 cursor-default"
+        class="absolute top-3 left-3 right-3 sm:right-auto sm:top-4 sm:left-4 p-2 sm:p-2.5 flex flex-col gap-2 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 shadow-lg z-20 cursor-default select-none"
         @mousedown.stop
         @wheel.stop
+        @touchstart.stop
+        @touchmove.stop
       >
-        <!-- 当前服务器名称徽章 -->
-        <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/60 text-xs font-semibold text-zinc-700 dark:text-zinc-200">
-          <server-icon size="16px" class="text-sky-500 shrink-0" />
-          <span class="max-w-[180px] truncate">{{ currentServerTitle }}</span>
+        <!-- 主功能行 -->
+        <div class="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2 w-full">
+          <!-- 左侧：服务器名称与维度选择 -->
+          <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <!-- 当前服务器名称徽章 -->
+            <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-zinc-100/90 dark:bg-zinc-800/90 border border-zinc-200/80 dark:border-zinc-700/60 text-xs font-semibold text-zinc-700 dark:text-zinc-200 min-w-0 shrink">
+              <server-icon size="16px" class="text-sky-500 shrink-0" />
+              <span class="max-w-[100px] sm:max-w-[180px] truncate">{{ currentServerTitle }}</span>
+            </div>
+
+            <!-- 维度选择（当开放多个维度时展示） -->
+            <template v-if="availableDimensionOptions.length > 1">
+              <div class="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-700/60"></div>
+              <t-select
+                v-model="currentDimension"
+                :options="availableDimensionOptions"
+                class="!w-[88px] sm:!w-[110px] shrink-0"
+                :popup-props="{ zIndex: 9999 }"
+                @change="handleDimensionChange"
+              />
+            </template>
+          </div>
+
+          <!-- 右侧：操作按钮群组 -->
+          <div class="flex items-center gap-1.5 shrink-0">
+            <!-- 移动端专属：坐标跳转搜索展开按钮 -->
+            <t-button
+              variant="outline"
+              shape="square"
+              class="sm:hidden !rounded-xl"
+              :class="{ '!bg-sky-50 dark:!bg-sky-950/50 !border-sky-500 !text-sky-500': showCoordSearch }"
+              title="坐标跳转"
+              @click="showCoordSearch = !showCoordSearch"
+            >
+              <template #icon><location-icon /></template>
+            </t-button>
+
+            <!-- 桌面端内联坐标跳转组件 -->
+            <div class="hidden sm:flex items-center gap-1.5">
+              <div class="w-px h-5 bg-zinc-200 dark:bg-zinc-700/60 mx-0.5"></div>
+              <t-input v-model="inputX" type="number" placeholder="X" class="!w-[76px]" @enter="handleSearchJump" />
+              <t-input v-model="inputZ" type="number" placeholder="Z" class="!w-[76px]" @enter="handleSearchJump" />
+              <t-button theme="primary" class="!rounded-xl shadow-sm" @click="handleSearchJump">
+                <template #icon><location-icon /></template> 定位
+              </t-button>
+            </div>
+
+            <div class="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-700/60 mx-0.5"></div>
+
+            <!-- 回到出生点 -->
+            <t-button
+              variant="outline"
+              shape="square"
+              class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
+              title="回到出生点"
+              @click="jumpToSpawn"
+            >
+              <template #icon><home-icon /></template>
+            </t-button>
+
+            <!-- 分享按钮：桌面端含文字，移动端为方形图标 -->
+            <t-button
+              variant="outline"
+              class="hidden sm:inline-flex !rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
+              title="复制分享链接"
+              @click="handleShare"
+            >
+              <template #icon><share-icon /></template> 分享
+            </t-button>
+            <t-button
+              variant="outline"
+              shape="square"
+              class="sm:hidden !rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
+              title="复制分享链接"
+              @click="handleShare"
+            >
+              <template #icon><share-icon /></template>
+            </t-button>
+
+            <!-- 明暗模式切换 -->
+            <t-button
+              variant="outline"
+              shape="square"
+              class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
+              :title="isDark ? '切换亮色模式' : '切换暗色模式'"
+              @click="toggleTheme"
+            >
+              <template #icon>
+                <sunny-icon v-if="isDark" />
+                <moon-icon v-else />
+              </template>
+            </t-button>
+
+            <!-- 全屏切换 -->
+            <t-button
+              variant="outline"
+              shape="square"
+              class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
+              :title="isFullscreen ? '退出全屏' : '全屏显示'"
+              @click="toggleFullscreen"
+            >
+              <template #icon>
+                <fullscreen-exit-icon v-if="isFullscreen" />
+                <fullscreen-icon v-else />
+              </template>
+            </t-button>
+
+            <!-- 返回多服务器目录按钮 -->
+            <t-button
+              v-if="publicServerList.length > 1"
+              variant="outline"
+              shape="square"
+              class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
+              title="服务器列表"
+              @click="isDirectoryView = true"
+            >
+              <template #icon><view-list-icon /></template>
+            </t-button>
+          </div>
         </div>
 
-        <!-- 维度选择（当开放多个维度时展示） -->
-        <template v-if="availableDimensionOptions.length > 1">
-          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700/60 mx-0.5"></div>
-          <t-select
-            v-model="currentDimension"
-            :options="availableDimensionOptions"
-            class="!w-[110px]"
-            :popup-props="{ zIndex: 9999 }"
-            @change="handleDimensionChange"
-          />
-        </template>
-
-        <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700/60 mx-0.5"></div>
-
-        <!-- 坐标跳转 -->
-        <t-input v-model="inputX" type="number" placeholder="X" class="!w-[76px]" @enter="handleSearchJump" />
-        <t-input v-model="inputZ" type="number" placeholder="Z" class="!w-[76px]" @enter="handleSearchJump" />
-
-        <t-button theme="primary" class="!rounded-xl shadow-sm" @click="handleSearchJump">
-          <template #icon><location-icon /></template> 定位
-        </t-button>
-
-        <!-- 回到出生点 -->
-        <t-button
-          variant="outline"
-          class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
-          title="回到出生点"
-          @click="jumpToSpawn"
+        <!-- 移动端折叠的坐标输入栏 -->
+        <div
+          v-if="showCoordSearch"
+          class="sm:hidden flex items-center gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-700/60"
         >
-          <template #icon><home-icon /></template>
-        </t-button>
+          <t-input v-model="inputX" type="number" placeholder="X" class="!flex-1" @enter="handleSearchJump" />
+          <t-input v-model="inputZ" type="number" placeholder="Z" class="!flex-1" @enter="handleSearchJump" />
+          <t-button theme="primary" class="!rounded-xl shrink-0" @click="handleSearchJump">
+            <template #icon><location-icon /></template> 定位
+          </t-button>
+        </div>
+      </div>
 
-        <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700/60 mx-0.5"></div>
-
-        <!-- 分享按钮 -->
+      <!-- 快捷缩放浮动按钮组（左下角） -->
+      <div
+        class="absolute bottom-4 left-4 p-1 flex flex-col gap-1 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-xl border border-zinc-200/80 dark:border-zinc-700/60 shadow-lg z-20 cursor-default select-none"
+        @mousedown.stop
+        @wheel.stop
+        @touchstart.stop
+        @touchmove.stop
+      >
         <t-button
-          variant="outline"
-          class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
-          title="分享当前位置地图链接"
-          @click="handleShare"
+          variant="text"
+          shape="square"
+          size="small"
+          class="!rounded-lg !text-zinc-700 dark:!text-zinc-200 hover:!bg-zinc-100 dark:hover:!bg-zinc-800"
+          title="放大"
+          @click="zoomIn"
         >
-          <template #icon><share-icon /></template> 分享
+          <template #icon><add-icon /></template>
         </t-button>
-
-        <!-- 明暗模式切换 -->
+        <div class="h-px bg-zinc-200 dark:bg-zinc-700/60 mx-1"></div>
         <t-button
-          variant="outline"
-          class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
-          :title="isDark ? '切换至亮色模式' : '切换至暗色模式'"
-          @click="toggleTheme"
+          variant="text"
+          shape="square"
+          size="small"
+          class="!rounded-lg !text-zinc-700 dark:!text-zinc-200 hover:!bg-zinc-100 dark:hover:!bg-zinc-800"
+          title="缩小"
+          @click="zoomOut"
         >
-          <template #icon>
-            <sunny-icon v-if="isDark" />
-            <moon-icon v-else />
-          </template>
-        </t-button>
-
-        <!-- 全屏切换 -->
-        <t-button
-          variant="outline"
-          class="!rounded-xl !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-700 dark:!text-zinc-200 transition-colors"
-          :title="isFullscreen ? '退出全屏' : '全屏显示'"
-          @click="toggleFullscreen"
-        >
-          <template #icon><view-list-icon /></template>
+          <template #icon><remove-icon /></template>
         </t-button>
       </div>
 
-      <!-- 底部信息 HUD 卡片 -->
+      <!-- 底部信息 HUD 卡片（右下角）：移动端为紧凑胶囊，支持点击展开详细信息 -->
       <div
-        class="absolute bottom-4 right-4 p-4 flex flex-col font-mono text-sm bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 shadow-lg z-20 pointer-events-none min-w-[210px]"
+        class="absolute bottom-4 right-4 p-2 sm:p-4 flex flex-col font-mono text-xs sm:text-sm bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-200/80 dark:border-zinc-700/60 shadow-lg z-20 cursor-pointer sm:cursor-default max-w-[calc(100vw-5rem)] sm:min-w-[210px] select-none"
+        @click="mobileHudExpanded = !mobileHudExpanded"
+        @mousedown.stop
+        @wheel.stop
+        @touchstart.stop
+        @touchmove.stop
       >
-        <div class="flex justify-between items-center gap-6 mb-2">
-          <span class="text-xs text-zinc-500 dark:text-zinc-400">服务器:</span>
-          <span class="font-bold text-sky-500 truncate max-w-[130px]">{{ currentServerTitle }}</span>
-        </div>
-
-        <div class="flex justify-between items-center gap-6 mb-2">
-          <span class="text-xs text-zinc-500 dark:text-zinc-400">当前维度:</span>
-          <span class="font-bold text-emerald-500">{{ currentDimensionLabel }}</span>
-        </div>
-
-        <div class="flex justify-between items-center gap-6 mb-2">
-          <span class="text-xs text-zinc-500 dark:text-zinc-400">方块坐标:</span>
-          <span class="font-bold text-zinc-800 dark:text-zinc-100">
+        <!-- 移动端默认紧凑单行胶囊展示 -->
+        <div class="flex sm:hidden items-center justify-between gap-3 font-semibold text-xs py-0.5">
+          <span class="text-zinc-800 dark:text-zinc-100">
             X: {{ centerCoordinates.blockX }}, Z: {{ centerCoordinates.blockZ }}
           </span>
+          <span class="text-amber-500">{{ Math.round(scale * 100) }}%</span>
         </div>
 
-        <div class="flex justify-between items-center gap-6 mb-2">
-          <span class="text-xs text-zinc-500 dark:text-zinc-400">区块区号:</span>
-          <span class="font-bold text-zinc-600 dark:text-zinc-300">
-            r.{{ centerCoordinates.regionX }}.{{ centerCoordinates.regionZ }}
-          </span>
-        </div>
+        <!-- 详细信息：桌面端常显，移动端点击胶囊后展开 -->
+        <div :class="['flex-col', mobileHudExpanded ? 'flex pt-2 mt-1 border-t border-dashed border-zinc-200 dark:border-zinc-700/60 sm:border-t-0 sm:pt-0 sm:mt-0' : 'hidden sm:flex']">
+          <div class="flex justify-between items-center gap-6 mb-2">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">服务器:</span>
+            <span class="font-bold text-sky-500 truncate max-w-[130px]">{{ currentServerTitle }}</span>
+          </div>
 
-        <div class="flex justify-between items-center gap-6 mb-3">
-          <span class="text-xs text-zinc-500 dark:text-zinc-400">当前缩放:</span>
-          <span class="font-bold text-amber-500">{{ Math.round(scale * 100) }}%</span>
-        </div>
+          <div class="flex justify-between items-center gap-6 mb-2">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">当前维度:</span>
+            <span class="font-bold text-emerald-500">{{ currentDimensionLabel }}</span>
+          </div>
 
-        <div
-          class="pt-2.5 border-t border-dashed border-zinc-200 dark:border-zinc-700/80 text-right text-[11px] text-zinc-400 font-sans tracking-wider"
-        >
-          滚轮缩放 / 拖拽移动
+          <div class="hidden sm:flex justify-between items-center gap-6 mb-2">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">方块坐标:</span>
+            <span class="font-bold text-zinc-800 dark:text-zinc-100">
+              X: {{ centerCoordinates.blockX }}, Z: {{ centerCoordinates.blockZ }}
+            </span>
+          </div>
+
+          <div class="flex justify-between items-center gap-6 mb-2">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">区块区号:</span>
+            <span class="font-bold text-zinc-600 dark:text-zinc-300">
+              r.{{ centerCoordinates.regionX }}.{{ centerCoordinates.regionZ }}
+            </span>
+          </div>
+
+          <div class="hidden sm:flex justify-between items-center gap-6 mb-3">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">当前缩放:</span>
+            <span class="font-bold text-amber-500">{{ Math.round(scale * 100) }}%</span>
+          </div>
+
+          <div
+            class="pt-2 border-t border-dashed border-zinc-200 dark:border-zinc-700/80 text-right text-[11px] text-zinc-400 font-sans tracking-wider"
+          >
+            双指缩放 / 拖拽移动
+          </div>
         </div>
       </div>
     </div>

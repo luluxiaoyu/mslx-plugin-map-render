@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
-import { LocationIcon, HomeIcon, DownloadIcon, LinkIcon } from 'tdesign-icons-vue-next';
+import { LocationIcon, HomeIcon, DownloadIcon, LinkIcon, AddIcon, RemoveIcon } from 'tdesign-icons-vue-next';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { getWorldSpawn, getTileUrl, ensureMediaToken, getMediaTokenParam } from '../api/map';
 
@@ -9,6 +9,8 @@ const props = defineProps<{
 }>();
 
 const visible = ref(false);
+const showCoordSearch = ref(false);
+const mobileHudExpanded = ref(false);
 
 const scale = ref(1);
 const translateX = ref(0);
@@ -16,6 +18,15 @@ const translateY = ref(0);
 let isDragging = false;
 let startX = 0;
 let startY = 0;
+
+let isTouching = false;
+let isPinching = false;
+let touchStartX = 0;
+let touchStartY = 0;
+let initialPinchDistance = 0;
+let initialPinchScale = 1;
+let pinchMidpointX = 0;
+let pinchMidpointY = 0;
 
 const inputX = ref<number | null>(0);
 const inputZ = ref<number | null>(0);
@@ -156,6 +167,7 @@ watch(
 );
 
 const startDrag = (e: MouseEvent) => {
+  if (isTouching) return;
   isDragging = true;
   startX = e.clientX - translateX.value;
   startY = e.clientY - translateY.value;
@@ -171,6 +183,83 @@ const onDrag = (e: MouseEvent) => {
 const stopDrag = () => {
   isDragging = false;
 };
+
+const handleTouchStart = (e: TouchEvent) => {
+  if (e.touches.length === 1) {
+    isTouching = true;
+    isPinching = false;
+    touchStartX = e.touches[0].clientX - translateX.value;
+    touchStartY = e.touches[0].clientY - translateY.value;
+  } else if (e.touches.length >= 2) {
+    isTouching = true;
+    isPinching = true;
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    initialPinchDistance = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+    initialPinchScale = scale.value;
+    pinchMidpointX = (t0.clientX + t1.clientX) / 2;
+    pinchMidpointY = (t0.clientY + t1.clientY) / 2;
+  }
+};
+
+const handleTouchMove = (e: TouchEvent) => {
+  if (!isTouching) return;
+
+  if (e.touches.length === 1 && !isPinching) {
+    translateX.value = e.touches[0].clientX - touchStartX;
+    translateY.value = e.touches[0].clientY - touchStartY;
+    updateVisibleRegions();
+  } else if (e.touches.length >= 2) {
+    const t0 = e.touches[0];
+    const t1 = e.touches[1];
+    const curDist = Math.hypot(t0.clientX - t1.clientX, t0.clientY - t1.clientY);
+
+    if (initialPinchDistance > 0 && curDist > 0) {
+      const pinchRatio = curDist / initialPinchDistance;
+      const targetScale = Math.min(Math.max(0.2, initialPinchScale * pinchRatio), 5);
+
+      if (scale.value !== targetScale) {
+        const scaleRatio = targetScale / scale.value;
+        translateX.value = translateX.value * scaleRatio;
+        translateY.value = translateY.value * scaleRatio;
+        scale.value = targetScale;
+      }
+
+      const curMidX = (t0.clientX + t1.clientX) / 2;
+      const curMidY = (t0.clientY + t1.clientY) / 2;
+      translateX.value += curMidX - pinchMidpointX;
+      translateY.value += curMidY - pinchMidpointY;
+      pinchMidpointX = curMidX;
+      pinchMidpointY = curMidY;
+
+      updateVisibleRegions();
+    }
+  }
+};
+
+const handleTouchEnd = (e: TouchEvent) => {
+  if (e.touches.length === 1) {
+    isPinching = false;
+    touchStartX = e.touches[0].clientX - translateX.value;
+    touchStartY = e.touches[0].clientY - translateY.value;
+  } else if (e.touches.length === 0) {
+    isTouching = false;
+    isPinching = false;
+  }
+};
+
+const zoomBy = (delta: number) => {
+  const newScale = Math.min(Math.max(0.2, scale.value + delta), 5);
+  if (newScale === scale.value) return;
+  const scaleRatio = newScale / scale.value;
+  translateX.value = translateX.value * scaleRatio;
+  translateY.value = translateY.value * scaleRatio;
+  scale.value = newScale;
+  updateVisibleRegions();
+};
+
+const zoomIn = () => zoomBy(0.25);
+const zoomOut = () => zoomBy(-0.25);
 
 const handleScroll = (e: WheelEvent) => {
   e.preventDefault();
@@ -304,21 +393,26 @@ defineExpose({
       @close="handleClose"
     >
       <div
-        class="w-full h-[70vh] min-h-[500px] relative overflow-hidden bg-zinc-50 dark:bg-zinc-950 rounded-b-xl select-none cursor-grab active:cursor-grabbing custom-grid-bg"
+        class="w-full h-[70vh] min-h-[380px] sm:min-h-[500px] relative overflow-hidden bg-zinc-50 dark:bg-zinc-950 rounded-b-xl select-none cursor-grab active:cursor-grabbing custom-grid-bg touch-none"
+        style="touch-action: none;"
         @wheel="handleScroll"
         @mousedown="startDrag"
         @mousemove="onDrag"
         @mouseup="stopDrag"
         @mouseleave="stopDrag"
+        @touchstart.passive="handleTouchStart"
+        @touchmove.prevent="handleTouchMove"
+        @touchend="handleTouchEnd"
+        @touchcancel="handleTouchEnd"
       >
         <div
-          class="absolute top-1/2 left-1/2 origin-center transition-transform duration-[50ms] ease-linear"
+          class="absolute top-1/2 left-1/2 origin-center transition-transform duration-[50ms] ease-linear pointer-events-none"
           :style="{ transform: `translate(${translateX}px, ${translateY}px) scale(${scale})` }"
         >
           <div
             v-for="tile in loadedRegions"
             :key="tile.key"
-            class="absolute w-[512px] h-[512px] -ml-[256px] -mt-[256px] flex items-center justify-center bg-zinc-100/50 dark:bg-zinc-900/50"
+            class="absolute w-[512px] h-[512px] -ml-[256px] -mt-[256px] flex items-center justify-center bg-zinc-100/50 dark:bg-zinc-900/50 pointer-events-none"
             :style="{ left: `${tile.x * 512}px`, top: `${tile.z * 512}px` }"
           >
             <img
@@ -340,88 +434,195 @@ defineExpose({
           <div class="absolute w-3.5 h-[2px] bg-red-500 shadow-[0_0_2px_rgba(0,0,0,0.6)]"></div>
         </div>
 
-        <!-- 顶部定位与工具栏：使用安全语义变量，不使用斜杠变量透明度 -->
+        <!-- 顶部定位与工具栏：移动端与桌面端自适应 -->
         <div
-          class="absolute top-4 left-4 p-3 flex items-center gap-2 bg-[var(--td-bg-color-container)] opacity-95 backdrop-blur-md rounded-xl border border-[var(--td-component-border)] shadow-md z-20 cursor-default"
+          class="absolute top-3 left-3 right-3 sm:right-auto sm:top-4 sm:left-4 p-2 sm:p-2.5 flex flex-col gap-2 bg-[var(--td-bg-color-container)] opacity-95 backdrop-blur-md rounded-xl border border-[var(--td-component-border)] shadow-md z-20 cursor-default select-none"
           @mousedown.stop
           @wheel.stop
+          @touchstart.stop
+          @touchmove.stop
         >
-          <t-select
-            v-model="currentDimension"
-            :options="dimensionOptions"
-            class="!w-[115px]"
-            :popup-props="{ zIndex: 9999 }"
-            @change="handleDimensionChange"
-          />
-          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-0.5"></div>
+          <!-- 主功能行 -->
+          <div class="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2 w-full">
+            <div class="flex items-center gap-1.5 sm:gap-2 min-w-0">
+              <t-select
+                v-model="currentDimension"
+                :options="dimensionOptions"
+                class="!w-[88px] sm:!w-[115px] shrink-0"
+                :popup-props="{ zIndex: 9999 }"
+                @change="handleDimensionChange"
+              />
+            </div>
 
-          <t-input v-model="inputX" type="number" placeholder="X 坐标" class="!w-[90px]" @enter="handleSearchJump" />
-          <t-input v-model="inputZ" type="number" placeholder="Z 坐标" class="!w-[90px]" @enter="handleSearchJump" />
+            <!-- 右侧操作组 -->
+            <div class="flex items-center gap-1.5 shrink-0">
+              <!-- 移动端专属坐标跳转展开按钮 -->
+              <t-button
+                variant="outline"
+                shape="square"
+                class="sm:hidden !rounded-lg"
+                :class="{ '!bg-sky-50 dark:!bg-sky-950/50 !border-sky-500 !text-sky-500': showCoordSearch }"
+                title="坐标跳转"
+                @click="showCoordSearch = !showCoordSearch"
+              >
+                <template #icon><location-icon /></template>
+              </t-button>
 
-          <t-button theme="primary" class="!rounded-lg shadow-sm" @click="handleSearchJump">
-            <template #icon><location-icon /></template> 定位
-          </t-button>
+              <!-- 桌面端内联坐标跳转 -->
+              <div class="hidden sm:flex items-center gap-1.5">
+                <div class="w-px h-5 bg-zinc-200 dark:bg-zinc-700 mx-0.5"></div>
+                <t-input v-model="inputX" type="number" placeholder="X" class="!w-[76px]" @enter="handleSearchJump" />
+                <t-input v-model="inputZ" type="number" placeholder="Z" class="!w-[76px]" @enter="handleSearchJump" />
+                <t-button theme="primary" class="!rounded-lg shadow-sm" @click="handleSearchJump">
+                  <template #icon><location-icon /></template> 定位
+                </t-button>
+              </div>
 
-          <t-button
-            variant="outline"
-            class="!rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
-            @click="jumpToSpawn"
-            title="回到出生点/中心点"
+              <div class="hidden sm:block w-px h-5 bg-zinc-200 dark:bg-zinc-700 mx-0.5"></div>
+
+              <!-- 回到出生点 -->
+              <t-button
+                variant="outline"
+                shape="square"
+                class="!rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
+                @click="jumpToSpawn"
+                title="回到出生点"
+              >
+                <template #icon><home-icon /></template>
+              </t-button>
+
+              <!-- 导出地图 -->
+              <t-button
+                variant="outline"
+                class="hidden sm:inline-flex !rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
+                @click="openExportDialog"
+                title="导出地图"
+              >
+                <template #icon><download-icon /></template> 导出
+              </t-button>
+              <t-button
+                variant="outline"
+                shape="square"
+                class="sm:hidden !rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
+                @click="openExportDialog"
+                title="导出地图"
+              >
+                <template #icon><download-icon /></template>
+              </t-button>
+
+              <!-- 打开全屏页面 -->
+              <t-button
+                variant="outline"
+                class="hidden sm:inline-flex !rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
+                @click="openPublicMap"
+                title="在新标签页中打开全屏公开地图"
+              >
+                <template #icon><link-icon /></template> 全屏页面
+              </t-button>
+              <t-button
+                variant="outline"
+                shape="square"
+                class="sm:hidden !rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
+                @click="openPublicMap"
+                title="在新标签页中打开全屏公开地图"
+              >
+                <template #icon><link-icon /></template>
+              </t-button>
+            </div>
+          </div>
+
+          <!-- 移动端坐标跳转下拉面板 -->
+          <div
+            v-if="showCoordSearch"
+            class="sm:hidden flex items-center gap-2 pt-2 border-t border-[var(--td-component-border)]"
           >
-            <template #icon><home-icon /></template>
+            <t-input v-model="inputX" type="number" placeholder="X" class="!flex-1" @enter="handleSearchJump" />
+            <t-input v-model="inputZ" type="number" placeholder="Z" class="!flex-1" @enter="handleSearchJump" />
+            <t-button theme="primary" class="!rounded-lg shrink-0" @click="handleSearchJump">
+              <template #icon><location-icon /></template> 定位
+            </t-button>
+          </div>
+        </div>
+
+        <!-- 快捷缩放浮动按钮组（左下角） -->
+        <div
+          class="absolute bottom-4 left-4 p-1 flex flex-col gap-1 bg-[var(--td-bg-color-container)] opacity-95 backdrop-blur-md rounded-xl border border-[var(--td-component-border)] shadow-md z-20 cursor-default select-none"
+          @mousedown.stop
+          @wheel.stop
+          @touchstart.stop
+          @touchmove.stop
+        >
+          <t-button
+            variant="text"
+            shape="square"
+            size="small"
+            class="!rounded-lg !text-[var(--td-text-color-primary)] hover:!bg-zinc-100 dark:hover:!bg-zinc-800"
+            title="放大"
+            @click="zoomIn"
+          >
+            <template #icon><add-icon /></template>
           </t-button>
-          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-0.5"></div>
+          <div class="h-px bg-zinc-200 dark:bg-zinc-700/60 mx-1"></div>
           <t-button
-            variant="outline"
-            class="!rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
-            @click="openExportDialog"
-            title="导出地图"
+            variant="text"
+            shape="square"
+            size="small"
+            class="!rounded-lg !text-[var(--td-text-color-primary)] hover:!bg-zinc-100 dark:hover:!bg-zinc-800"
+            title="缩小"
+            @click="zoomOut"
           >
-            <template #icon><download-icon /></template> 导出
-          </t-button>
-          <div class="w-px h-6 bg-zinc-200 dark:bg-zinc-700 mx-0.5"></div>
-          <t-button
-            variant="outline"
-            class="!rounded-lg !bg-zinc-100 dark:!bg-zinc-800 !border-zinc-200 dark:!border-zinc-700 hover:!bg-zinc-200 dark:hover:!bg-zinc-700 !text-zinc-600 dark:!text-zinc-300 transition-colors"
-            @click="openPublicMap"
-            title="在新标签页中打开全屏公开地图"
-          >
-            <template #icon><link-icon /></template> 全屏页面
+            <template #icon><remove-icon /></template>
           </t-button>
         </div>
 
-        <!-- 底部坐标与比例尺信息卡片 -->
+        <!-- 底部坐标与比例尺信息卡片：移动端为紧凑胶囊，支持点击展开 -->
         <div
-          class="absolute bottom-4 right-4 p-4 flex flex-col font-mono text-sm bg-[var(--td-bg-color-container)] opacity-95 backdrop-blur-md rounded-xl border border-[var(--td-component-border)] shadow-md z-20 pointer-events-none"
+          class="absolute bottom-4 right-4 p-2 sm:p-4 flex flex-col font-mono text-xs sm:text-sm bg-[var(--td-bg-color-container)] opacity-95 backdrop-blur-md rounded-xl border border-[var(--td-component-border)] shadow-md z-20 cursor-pointer sm:cursor-default max-w-[calc(100vw-5rem)] sm:min-w-[210px] select-none"
+          @click="mobileHudExpanded = !mobileHudExpanded"
+          @mousedown.stop
+          @wheel.stop
+          @touchstart.stop
+          @touchmove.stop
         >
-          <div class="flex justify-between items-center gap-6 mb-2">
-            <span class="text-xs text-[var(--td-text-color-secondary)]">当前维度:</span>
-            <span class="font-bold text-[var(--color-primary)]">{{ currentDimensionLabel }}</span>
+          <!-- 移动端默认紧凑单行胶囊展示 -->
+          <div class="flex sm:hidden items-center justify-between gap-3 font-semibold text-xs py-0.5">
+            <span class="text-[var(--td-text-color-primary)]">
+              X: {{ centerCoordinates.blockX }}, Z: {{ centerCoordinates.blockZ }}
+            </span>
+            <span class="text-[var(--color-primary)]">{{ Math.round(scale * 100) }}%</span>
           </div>
 
-          <div class="flex justify-between items-center gap-6 mb-2">
-            <span class="text-xs text-[var(--td-text-color-secondary)]">方块坐标 (Block):</span>
-            <span class="font-bold text-[var(--color-primary)]"
-              >X: {{ centerCoordinates.blockX }}, Z: {{ centerCoordinates.blockZ }}</span
+          <!-- 详细信息：桌面端常显，移动端点击胶囊后展开 -->
+          <div :class="['flex-col', mobileHudExpanded ? 'flex pt-2 mt-1 border-t border-dashed border-zinc-200 dark:border-zinc-700/60 sm:border-t-0 sm:pt-0 sm:mt-0' : 'hidden sm:flex']">
+            <div class="flex justify-between items-center gap-6 mb-2">
+              <span class="text-xs text-[var(--td-text-color-secondary)]">当前维度:</span>
+              <span class="font-bold text-[var(--color-primary)]">{{ currentDimensionLabel }}</span>
+            </div>
+
+            <div class="hidden sm:flex justify-between items-center gap-6 mb-2">
+              <span class="text-xs text-[var(--td-text-color-secondary)]">方块坐标:</span>
+              <span class="font-bold text-[var(--color-primary)]">
+                X: {{ centerCoordinates.blockX }}, Z: {{ centerCoordinates.blockZ }}
+              </span>
+            </div>
+
+            <div class="flex justify-between items-center gap-6 mb-2">
+              <span class="text-xs text-[var(--td-text-color-secondary)]">区块区号:</span>
+              <span class="font-bold text-[var(--color-primary)]">
+                r.{{ centerCoordinates.regionX }}.{{ centerCoordinates.regionZ }}
+              </span>
+            </div>
+
+            <div class="hidden sm:flex justify-between items-center gap-6 mb-3">
+              <span class="text-xs text-[var(--td-text-color-secondary)]">当前缩放:</span>
+              <span class="font-bold text-[var(--color-primary)]">{{ Math.round(scale * 100) }}%</span>
+            </div>
+
+            <div
+              class="pt-2 border-t border-dashed border-zinc-200/80 dark:border-zinc-700/80 text-right text-[11px] text-[var(--td-text-color-secondary)] font-sans tracking-widest"
             >
-          </div>
-
-          <div class="flex justify-between items-center gap-6 mb-2">
-            <span class="text-xs text-[var(--td-text-color-secondary)]">区块区号 (Region):</span>
-            <span class="font-bold text-[var(--color-primary)]"
-              >r.{{ centerCoordinates.regionX }}.{{ centerCoordinates.regionZ }}</span
-            >
-          </div>
-
-          <div class="flex justify-between items-center gap-6 mb-3">
-            <span class="text-xs text-[var(--td-text-color-secondary)]">当前缩放:</span>
-            <span class="font-bold text-[var(--color-primary)]">{{ Math.round(scale * 100) }}%</span>
-          </div>
-
-          <div
-            class="pt-2.5 border-t border-dashed border-zinc-200/80 dark:border-zinc-700/80 text-right text-[11px] text-[var(--td-text-color-secondary)] font-sans tracking-widest"
-          >
-            滚轮缩放 | 按住拖拽
+              双指缩放 | 拖拽移动
+            </div>
           </div>
         </div>
       </div>
